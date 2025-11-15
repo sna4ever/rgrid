@@ -9,16 +9,7 @@ from typing import Optional
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-# We need to import the Execution model
-# Since we're in runner package, we need to setup the path correctly
-import sys
-from pathlib import Path
-
-# Add api to path to import models
-api_path = Path(__file__).parent.parent.parent / "api"
-sys.path.insert(0, str(api_path))
-
-from app.models.execution import Execution
+from runner.models import Execution
 
 logger = logging.getLogger(__name__)
 
