@@ -46,15 +46,15 @@ development_status:
   1-6-set-up-fastapi-backend-with-database-connection: done  # Tier 1
   epic-1-retrospective: optional
 
-  # Epic 2: Single Script Execution (🟡 TIER 1 PARTIAL - 3/7 stories)
+  # Epic 2: Single Script Execution (🟡 TIER 2 PARTIAL - 4/7 stories)
   epic-2: contexted
   2-1-implement-rgrid-run-command-basic-stub: done  # Tier 1
   2-2-implement-docker-container-execution-on-runner: done  # Tier 1
-  2-3-implement-pre-configured-runtimes: ready-for-dev  # Tier 2
-  2-4-auto-detect-and-install-python-dependencies: ready-for-dev  # Tier 2
-  2-5-handle-script-input-files-as-arguments: ready-for-dev  # Tier 2
-  2-6-collect-and-store-script-outputs: done  # Tier 1 (basic - no storage to DB yet)
-  2-7-support-environment-variables-via-env-flag: ready-for-dev  # Tier 2
+  2-3-implement-pre-configured-runtimes: ready-for-dev  # Tier 3
+  2-4-auto-detect-and-install-python-dependencies: ready-for-dev  # Tier 3
+  2-5-handle-script-input-files-as-arguments: ready-for-dev  # Tier 3
+  2-6-collect-and-store-script-outputs: done  # Tier 2 - 2025-11-15 (stdout/stderr to DB)
+  2-7-support-environment-variables-via-env-flag: done  # Tier 2 - 2025-11-15 (via -e flag)
   epic-2-retrospective: optional
 
   # Epic 3: Distributed Orchestration (Ray)
@@ -102,15 +102,15 @@ development_status:
   7-6-implement-large-file-streaming-and-compression: ready-for-dev  # Tier 3
   epic-7-retrospective: optional
 
-  # Epic 8: Observability & Real-time Feedback
+  # Epic 8: Observability & Real-time Feedback (🟡 TIER 2 PARTIAL - 2/6 stories)
   epic-8: contexted
-  8-1-implement-rgrid-status-command: ready-for-dev
-  8-2-implement-rgrid-logs-command-with-historical-logs: ready-for-dev
+  8-1-implement-rgrid-status-command: done  # Tier 2 - 2025-11-15
+  8-2-implement-rgrid-logs-command-with-historical-logs: done  # Tier 2 - 2025-11-15
   8-3-implement-websocket-log-streaming-for-real-time-logs: ready-for-dev
   8-4-implement-cli-reconnection-for-websocket-streams: ready-for-dev
   8-5-implement-batch-progress-display-with-watch: ready-for-dev
   8-6-track-execution-metadata-in-database: ready-for-dev
-  epic-8-retrospective: optional
+  epic-8-retrospective: completed  # docs/TIER2_RETROSPECTIVE.md
 
   # Epic 9: Cost Tracking & Billing
   epic-9: contexted
