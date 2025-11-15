@@ -1,91 +1,229 @@
-"""Worker process that claims and executes jobs."""
+"""
+RGrid Worker Daemon.
+
+Polls the database for queued executions and processes them.
+"""
 
 import asyncio
-import httpx
+import logging
+import signal
+import sys
 from datetime import datetime
 from typing import Optional
 
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
+from sqlalchemy.orm import sessionmaker
+
 from runner.executor import DockerExecutor
+from runner.poller import JobPoller
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+)
+logger = logging.getLogger(__name__)
+
+# Output size limit (100KB)
+OUTPUT_SIZE_LIMIT = 100 * 1024
 
 
 class Worker:
-    """Worker that executes jobs from the queue."""
+    """
+    Worker daemon that processes queued executions.
+    """
 
-    def __init__(self, api_url: str, api_key: str) -> None:
+    def __init__(
+        self,
+        database_url: str,
+        poll_interval: int = 5,
+        max_concurrent: int = 2,
+    ):
         """
         Initialize worker.
 
         Args:
-            api_url: RGrid API URL
-            api_key: API key for authentication
+            database_url: PostgreSQL connection string
+            poll_interval: Seconds between polls
+            max_concurrent: Maximum concurrent executions
         """
-        self.api_url = api_url
-        self.api_key = api_key
-        self.executor = DockerExecutor()
-        self.client = httpx.AsyncClient(
-            base_url=api_url,
-            headers={"Authorization": f"Bearer {api_key}"},
-            timeout=60.0,
+        self.database_url = database_url
+        self.poll_interval = poll_interval
+        self.max_concurrent = max_concurrent
+        self.running = False
+        self.active_tasks = set()
+
+        # Create async engine
+        self.engine = create_async_engine(database_url, echo=False)
+        self.async_session_maker = async_sessionmaker(
+            self.engine, class_=AsyncSession, expire_on_commit=False
         )
 
-    async def claim_execution(self) -> Optional[dict]:
-        """
-        Claim next execution from queue.
+        # Docker executor
+        self.executor = DockerExecutor()
 
-        Returns:
-            Execution details or None if queue is empty
-        """
-        # For walking skeleton, poll database directly
-        # In full implementation, use Ray or queue system
-        return None
+        # Job poller
+        self.poller = JobPoller(self.async_session_maker)
 
-    async def execute(self, execution: dict) -> None:
-        """Execute a claimed job."""
-        execution_id = execution["execution_id"]
+    async def start(self):
+        """Start the worker daemon."""
+        logger.info(f"Starting RGrid worker (max_concurrent={self.max_concurrent})")
+        self.running = True
+
+        # Register signal handlers
+        signal.signal(signal.SIGTERM, self._signal_handler)
+        signal.signal(signal.SIGINT, self._signal_handler)
+
+        try:
+            while self.running:
+                # Check if we can accept more jobs
+                if len(self.active_tasks) < self.max_concurrent:
+                    job = await self.poller.claim_next_job()
+                    if job:
+                        logger.info(f"Claimed job: {job.execution_id}")
+                        # Start processing in background
+                        task = asyncio.create_task(self.process_job(job))
+                        self.active_tasks.add(task)
+                        task.add_done_callback(self.active_tasks.discard)
+                    else:
+                        # No jobs available, wait before polling again
+                        await asyncio.sleep(self.poll_interval)
+                else:
+                    # At capacity, wait
+                    await asyncio.sleep(1)
+
+        except Exception as e:
+            logger.error(f"Worker error: {e}", exc_info=True)
+        finally:
+            await self.shutdown()
+
+    async def process_job(self, job):
+        """
+        Process a single execution.
+
+        Args:
+            job: Execution database record
+        """
+        execution_id = job.execution_id
+        logger.info(f"Processing {execution_id}: {job.runtime}")
 
         try:
             # Update status to running
-            await self.client.patch(
-                f"/api/v1/executions/{execution_id}",
-                json={"status": "running", "started_at": datetime.utcnow().isoformat()},
-            )
+            async with self.async_session_maker() as session:
+                await self.poller.update_status(
+                    session, execution_id, "running", started_at=datetime.utcnow()
+                )
+                await session.commit()
 
-            # Execute in Docker
+            # Execute script using DockerExecutor
             exit_code, stdout, stderr = self.executor.execute_script(
-                script_content=execution["script_content"],
-                runtime=execution["runtime"],
-                args=execution.get("args", []),
-                env_vars=execution.get("env_vars", {}),
+                script_content=job.script_content,
+                runtime=job.runtime,
+                args=job.args or [],
+                env_vars=job.env_vars or {},
             )
 
-            # Update status to completed
-            status = "completed" if exit_code == 0 else "failed"
-            await self.client.patch(
-                f"/api/v1/executions/{execution_id}",
-                json={
-                    "status": status,
-                    "exit_code": exit_code,
-                    "completed_at": datetime.utcnow().isoformat(),
-                },
-            )
+            # Truncate output if too large
+            output_truncated = False
+            if len(stdout) > OUTPUT_SIZE_LIMIT:
+                stdout = stdout[:OUTPUT_SIZE_LIMIT]
+                output_truncated = True
+                logger.warning(f"{execution_id}: stdout truncated (>{OUTPUT_SIZE_LIMIT} bytes)")
+
+            if len(stderr) > OUTPUT_SIZE_LIMIT:
+                stderr = stderr[:OUTPUT_SIZE_LIMIT]
+                output_truncated = True
+                logger.warning(f"{execution_id}: stderr truncated (>{OUTPUT_SIZE_LIMIT} bytes)")
+
+            # Determine final status
+            final_status = "completed" if exit_code == 0 else "failed"
+
+            # Update database with results
+            async with self.async_session_maker() as session:
+                await self.poller.update_execution_result(
+                    session=session,
+                    execution_id=execution_id,
+                    status=final_status,
+                    exit_code=exit_code,
+                    stdout=stdout,
+                    stderr=stderr,
+                    output_truncated=output_truncated,
+                    completed_at=datetime.utcnow(),
+                )
+                await session.commit()
+
+            logger.info(f"Completed {execution_id}: exit_code={exit_code}, status={final_status}")
 
         except Exception as e:
+            logger.error(f"Error processing {execution_id}: {e}", exc_info=True)
+
             # Mark as failed
-            await self.client.patch(
-                f"/api/v1/executions/{execution_id}",
-                json={"status": "failed", "completed_at": datetime.utcnow().isoformat()},
-            )
+            try:
+                async with self.async_session_maker() as session:
+                    await self.poller.update_execution_result(
+                        session=session,
+                        execution_id=execution_id,
+                        status="failed",
+                        execution_error=str(e),
+                        completed_at=datetime.utcnow(),
+                    )
+                    await session.commit()
+            except Exception as update_error:
+                logger.error(f"Failed to update error status for {execution_id}: {update_error}")
 
-    async def run(self) -> None:
-        """Run worker loop."""
-        while True:
-            execution = await self.claim_execution()
-            if execution:
-                await self.execute(execution)
-            else:
-                await asyncio.sleep(1)
+    async def shutdown(self):
+        """Gracefully shutdown worker."""
+        logger.info("Shutting down worker...")
+        self.running = False
 
-    async def close(self) -> None:
-        """Close worker resources."""
+        # Wait for active tasks to complete
+        if self.active_tasks:
+            logger.info(f"Waiting for {len(self.active_tasks)} active tasks...")
+            await asyncio.gather(*self.active_tasks, return_exceptions=True)
+
+        # Close Docker executor
         self.executor.close()
-        await self.client.aclose()
+
+        # Close database engine
+        await self.engine.dispose()
+
+        logger.info("Worker shut down complete")
+
+    def _signal_handler(self, signum, frame):
+        """Handle shutdown signals."""
+        logger.info(f"Received signal {signum}, initiating shutdown...")
+        self.running = False
+
+
+async def main():
+    """Main entry point."""
+    import os
+
+    # Get database URL from environment
+    database_url = os.getenv("DATABASE_URL")
+    if not database_url:
+        logger.error("DATABASE_URL environment variable not set")
+        sys.exit(1)
+
+    # Ensure it uses asyncpg driver
+    if "postgresql://" in database_url and "+asyncpg" not in database_url:
+        database_url = database_url.replace("postgresql://", "postgresql+asyncpg://")
+
+    # Create and start worker
+    worker = Worker(
+        database_url=database_url,
+        poll_interval=5,
+        max_concurrent=2,
+    )
+
+    try:
+        await worker.start()
+    except KeyboardInterrupt:
+        logger.info("Keyboard interrupt received")
+    finally:
+        await worker.shutdown()
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
