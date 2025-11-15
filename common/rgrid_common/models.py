@@ -39,9 +39,19 @@ class ExecutionResponse(ExecutionBase):
     execution_id: str = Field(..., description="Unique execution ID")
     status: ExecutionStatus = Field(..., description="Current execution status")
     exit_code: Optional[int] = Field(None, description="Process exit code")
+
+    # Output fields (Tier 2)
+    stdout: Optional[str] = Field(None, description="Standard output from execution")
+    stderr: Optional[str] = Field(None, description="Standard error from execution")
+    output_truncated: bool = Field(default=False, description="Whether output was truncated")
+    execution_error: Optional[str] = Field(None, description="Error message if execution failed")
+
+    # Timestamps
     created_at: datetime = Field(..., description="Creation timestamp")
     started_at: Optional[datetime] = Field(None, description="Start timestamp")
     completed_at: Optional[datetime] = Field(None, description="Completion timestamp")
+
+    # Cost tracking
     cost_micros: int = Field(default=0, ge=0, description="Cost in micros")
 
 
