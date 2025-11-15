@@ -45,15 +45,19 @@ After Tier 3, RGrid can:
 
 ### What's Missing (Tiers 4-6)
 
-The remaining 44 stories fall into three strategic tiers:
+The remaining 46 stories fall into four strategic milestones:
 
 | Tier | Theme | Stories | Estimated Effort |
 |------|-------|---------|------------------|
-| **Tier 4** | Distributed Execution & Cloud | 13 stories | 3-4 weeks |
-| **Tier 5** | Advanced Features & Optimization | 17 stories | 4-5 weeks |
-| **Tier 6** | Production Polish & Interfaces | 14 stories | 3-4 weeks |
+| **Tier 4** | Distributed Execution & Cloud | 14 stories | 4-5 weeks |
+| **Security Review** | Multi-tenant security audit | Milestone | 1 week |
+| **Tier 4.5** | Batch Quick Win | 2 stories | 1 week |
+| **Tier 5** | Advanced Features & Optimization | 15 stories | 4-5 weeks |
+| **Tier 6** | Production Polish & Interfaces | 14 stories | 4-5 weeks |
 
-**Total:** 44 stories, 10-13 weeks estimated
+**Total:** 46 stories + 1 security milestone, 14-17 weeks estimated
+
+**Party Mode Review Applied:** Incorporated recommendations from multi-agent review (2025-11-15)
 
 ---
 
@@ -76,7 +80,9 @@ The remaining 44 stories fall into three strategic tiers:
 - ✅ Database migrations in place
 - ✅ Resource limits and timeouts working
 
-### Stories (13 total)
+### Stories (14 total)
+
+**Note:** Effort estimates adjusted +20-30% based on developer review of complexity
 
 #### Phase 1: File Handling Foundation (1 story)
 **Why first:** File handling must work before distributing jobs across nodes
@@ -126,11 +132,12 @@ The remaining 44 stories fall into three strategic tiers:
 - API submits Ray tasks via `execute_script.remote(exec_id)`
 - Ray schedules tasks on available workers
 - Status updates: queued → running → completed
+- Handle edge cases: job claiming races, network partitions, state reconciliation
 - **Complexity:** High
 - **Risk:** High (distributed execution state management)
-- **Estimated effort:** 8-12 hours
+- **Estimated effort:** 12-16 hours (adjusted for distributed state complexity)
 - **Dependencies:** 3-2
-- **Tests:** Multi-worker job distribution, verify atomic claiming
+- **Tests:** Multi-worker job distribution, verify atomic claiming, chaos testing
 
 **3-4: Implement Worker Health Monitoring** (Epic 3)
 - Workers send heartbeats every 30 seconds
@@ -167,6 +174,19 @@ The remaining 44 stories fall into three strategic tiers:
 - **Dependencies:** 4-1
 - **Tests:** Various queue depths, verify provisioning decisions
 
+**NEW-4: Implement Provisioning User Feedback** (New story from UX review)
+- Display provisioning status to user: "Provisioning worker... (30s elapsed)"
+- Error messages for provisioning failures:
+  - Hetzner quota exceeded: "Worker limit reached. Upgrade account or wait for workers to free up."
+  - API failures: "Cloud provider error. Retrying... (attempt 2/3)"
+  - Network issues: "Cannot reach cloud provider. Check network connection."
+- CLI spinner/progress during 60-second worker startup
+- **Complexity:** Low
+- **Risk:** Low (UI/messaging)
+- **Estimated effort:** 4-6 hours
+- **Dependencies:** 4-1, 4-2
+- **Tests:** Simulate various failure modes, verify user-friendly messages
+
 ---
 
 #### Phase 5: Worker Lifecycle Management (3 stories)
@@ -178,9 +198,9 @@ The remaining 44 stories fall into three strategic tiers:
 - Integration with provisioning for auto-replacement
 - **Complexity:** High
 - **Risk:** High (distributed failure detection)
-- **Estimated effort:** 8-12 hours
+- **Estimated effort:** 10-14 hours (adjusted for failure scenario complexity)
 - **Dependencies:** 3-4, 4-1
-- **Tests:** Simulate worker failures, verify detection and replacement
+- **Tests:** Simulate worker failures, verify detection and replacement, chaos engineering
 
 **4-5: Implement Worker Auto-Replacement on Failure** (Epic 4)
 - Detect dead workers (no heartbeat for 2 minutes)
@@ -222,15 +242,16 @@ The remaining 44 stories fall into three strategic tiers:
 
 ### Tier 4 Summary
 
-**Total Stories:** 13
-**Estimated Effort:** 86-120 hours (3-4 weeks)
-**Critical Path:** 3-1 → 3-2 → 3-3 → 3-4 → 4-1 → 4-2 → 4-5
+**Total Stories:** 14
+**Estimated Effort:** 110-154 hours (4-5 weeks, includes 20% complexity buffer)
+**Critical Path:** 3-1 → 3-2 → 3-3 → 3-4 → 4-1 → 4-2 → NEW-4 → 4-5
 
 **Key Risks:**
-1. **Ray cluster networking** - Mitigation: Test locally with multiple Ray workers first
-2. **Hetzner API reliability** - Mitigation: Add retry logic, handle rate limits
-3. **Worker failure scenarios** - Mitigation: Comprehensive failure injection testing
-4. **Distributed state consistency** - Mitigation: Use database as source of truth
+1. **Ray cluster networking** - Mitigation: Test locally with Docker Compose Ray cluster first; Fallback: Direct API polling
+2. **Hetzner API reliability** - Mitigation: Add retry logic, handle rate limits, monitor API status
+3. **Hetzner account limits** (NEW from analyst review) - Mitigation: Request limit increase before starting; Fallback: DigitalOcean as backup provider
+4. **Worker failure scenarios** - Mitigation: Comprehensive chaos engineering testing (2-3 days dedicated)
+5. **Distributed state consistency** - Mitigation: Use database as source of truth, implement idempotent operations
 
 **Success Criteria:**
 - ✅ Jobs distributed across 3+ workers automatically
@@ -241,22 +262,170 @@ The remaining 44 stories fall into three strategic tiers:
 - ✅ No manual infrastructure management required
 
 **Testing Requirements:**
-- Unit tests for all provisioning and scheduling logic
-- Integration tests with local Ray cluster (3+ workers)
-- Manual testing with actual Hetzner provisioning
-- Failure injection tests (kill workers, network failures)
-- Load testing with 100+ concurrent jobs
+- **Unit tests:** All provisioning and scheduling logic (80%+ coverage)
+- **Integration tests:** Local Ray cluster with 3+ workers
+- **Baseline metrics** (BEFORE Tier 4):
+  - Single-node max throughput
+  - Database query performance under load
+  - Docker container startup times at scale
+- **Chaos engineering** (2-3 days dedicated):
+  - Kill workers mid-execution
+  - Simulate network partitions
+  - Force Hetzner API failures
+  - Corrupt database state and verify recovery
+- **Manual testing:** Actual Hetzner provisioning in staging environment
+- **Load testing:** 100+ concurrent jobs across distributed workers
+- **Documentation:** CLI help text updates, "Cloud Execution" guide added to docs
+
+---
+
+## Security Review Milestone
+
+**When:** After Tier 4 complete, before Tier 4.5
+
+**Duration:** 1 week
+
+**Goal:** Comprehensive security audit of multi-tenant cloud infrastructure before adding batch capabilities
+
+### Scope
+
+RGrid executes untrusted user code in a multi-tenant environment with cloud infrastructure. This requires rigorous security review before public release.
+
+**Critical Areas to Audit:**
+
+1. **Container Isolation**
+   - Verify Docker container sandboxing (network=none, read-only root)
+   - Test resource limits enforcement (CPU, memory)
+   - Verify no container escape vectors
+   - Test process isolation between concurrent jobs
+
+2. **Multi-Tenancy**
+   - Verify complete isolation between accounts
+   - Test API key authentication and authorization
+   - Verify database row-level security (account_id filtering)
+   - Test artifact access controls (presigned URLs scoped to account)
+
+3. **Cloud Infrastructure**
+   - Hetzner API key storage and rotation
+   - Worker node security hardening
+   - Network security groups and firewall rules
+   - MinIO access policies and bucket isolation
+
+4. **Input Validation**
+   - Script content sanitization
+   - File upload validation (size limits, type checking)
+   - Environment variable injection prevention
+   - SQL injection prevention (parameterized queries)
+
+5. **Secrets Management**
+   - API keys never logged or exposed in errors
+   - MinIO credentials rotation
+   - Database connection strings secured
+   - Worker-to-control-plane authentication
+
+### Deliverables
+
+- **Security Audit Report** (docs/SECURITY_AUDIT.md)
+  - Findings categorized by severity (Critical, High, Medium, Low)
+  - Remediation recommendations
+  - Attack surface analysis
+
+- **Penetration Testing Results**
+  - Attempt container escape
+  - Attempt cross-account access
+  - Attempt resource exhaustion attacks
+  - Attempt data exfiltration
+
+- **Security Hardening Checklist**
+  - All critical and high findings resolved
+  - Medium findings documented with acceptance or plan
+  - Security best practices documented for future development
+
+### Success Criteria
+
+- ✅ Zero critical security findings unresolved
+- ✅ All high-severity findings resolved or mitigated
+- ✅ Penetration testing shows no exploitable vulnerabilities
+- ✅ Security hardening guide created for operations team
+- ✅ Incident response plan documented
+
+**Note:** This milestone is MANDATORY before public MVP release. Do not skip.
+
+---
+
+## Tier 4.5: Batch Quick Win
+
+**Theme:** Deliver immediate user-facing value with basic batch execution
+
+**Goal:** Give users the `--batch` flag immediately after distributed execution works
+
+**Value Delivered:**
+- Users can process multiple files in parallel
+- Clear demonstration of distributed execution benefits
+- Natural demo point after infrastructure work
+
+**Why This Tier?** Product management feedback: Tier 4 enables infrastructure but users don't see value. Tier 4.5 delivers the killer feature (batch execution) as soon as distribution works, creating a natural demo milestone.
+
+### Prerequisites
+
+- ✅ Tier 4 complete (distributed execution working)
+- ✅ Security Review complete
+- ✅ File upload/download working (Story 2-5 from Tier 4)
+
+### Stories (2 total)
+
+**5-1: Implement --batch Flag with Glob Pattern Expansion** (Epic 5)
+- Expand glob patterns (*.csv, data/**, etc.)
+- Create N execution requests (one per file)
+- Display: "Starting batch: 100 files, 10 parallel"
+- **Complexity:** Medium
+- **Risk:** Low (Python glob library)
+- **Estimated effort:** 6-8 hours
+- **Dependencies:** 2-5 (file handling from Tier 4)
+- **Tests:** Various glob patterns, verify execution count
+
+**5-2: Implement --parallel Flag for Concurrency Control** (Epic 5)
+- Control max parallel executions
+- Use asyncio.Semaphore for concurrency
+- Default parallelism = 10
+- **Complexity:** Medium
+- **Risk:** Medium (async coordination)
+- **Estimated effort:** 6-8 hours
+- **Dependencies:** 5-1
+- **Tests:** Verify max parallelism enforced, measure throughput
+
+### Tier 4.5 Summary
+
+**Total Stories:** 2
+**Estimated Effort:** 12-16 hours (1 week with testing and docs)
+**Critical Path:** 5-1 → 5-2
+
+**Value Delivered:** Users can now run `rgrid run script.py --batch data/*.csv --parallel 20` and see jobs distributed across cloud workers automatically.
+
+**Success Criteria:**
+- ✅ Users can batch-process 100+ files with single command
+- ✅ Parallelism controls work correctly
+- ✅ Jobs distributed across multiple cloud workers
+- ✅ Demo-ready for showcasing distributed batch execution
+
+**Testing Requirements:**
+- Various glob patterns (*.csv, data/**, file_{1..100}.json)
+- Parallelism limits enforced correctly
+- Load testing with 100+ file batch
+- **Documentation:** Batch execution tutorial with examples added to docs
+
+**Demo Milestone:** After Tier 4.5, RGrid can be demoed as "process 1000 CSV files in parallel across auto-scaling cloud workers with one command."
 
 ---
 
 ## Tier 5: Advanced Features & Optimization
 
-**Theme:** Batch processing, caching, and complete file management
+**Theme:** Batch management, caching, and complete file management
 
-**Goal:** Enable power users to process large datasets efficiently with transparent caching
+**Goal:** Complete batch execution features and add content-hash caching for instant re-runs
 
 **Value Delivered:**
-- Parallel batch execution across input files
+- Advanced batch management (progress tracking, failure handling, retry)
 - Content-hash caching for instant re-runs
 - Complete artifact management with MinIO
 - Auto-detect Python dependencies
@@ -264,12 +433,14 @@ The remaining 44 stories fall into three strategic tiers:
 
 ### Prerequisites
 
-- ✅ Tier 4 complete (distributed execution working)
+- ✅ Tier 4.5 complete (basic batch execution working)
 - ✅ Ray cluster operational
 - ✅ Hetzner auto-scaling functional
 - ✅ File upload/download working
 
-### Stories (17 total)
+### Stories (15 total)
+
+**Note:** Stories 5-1 and 5-2 moved to Tier 4.5 for immediate user value
 
 #### Phase 1: MinIO Storage Foundation (2 stories)
 **Why first:** Storage infrastructure needed for all artifact management
@@ -332,33 +503,8 @@ The remaining 44 stories fall into three strategic tiers:
 
 ---
 
-#### Phase 3: Batch Execution Basics (2 stories)
-**Why third:** Core batch functionality before advanced features
-
-**5-1: Implement --batch Flag with Glob Pattern Expansion** (Epic 5)
-- Expand glob patterns (*.csv, data/**, etc.)
-- Create N execution requests (one per file)
-- Display: "Starting batch: 3 files, 10 parallel"
-- **Complexity:** Medium
-- **Risk:** Low (Python glob library)
-- **Estimated effort:** 6-8 hours
-- **Dependencies:** 7-1, 7-4
-- **Tests:** Various glob patterns, verify execution count
-
-**5-2: Implement --parallel Flag for Concurrency Control** (Epic 5)
-- Control max parallel executions
-- Use asyncio.Semaphore for concurrency
-- Default parallelism = 10
-- **Complexity:** Medium
-- **Risk:** Medium (async coordination)
-- **Estimated effort:** 6-8 hours
-- **Dependencies:** 5-1
-- **Tests:** Verify max parallelism enforced, measure throughput
-
----
-
-#### Phase 4: Batch Management (3 stories)
-**Why fourth:** User-facing batch features
+#### Phase 3: Batch Management (3 stories)
+**Why third:** User-facing batch features (builds on 5-1, 5-2 from Tier 4.5)
 
 **5-3: Track Batch Execution Progress** (Epic 5)
 - Poll API for execution statuses
@@ -394,8 +540,8 @@ The remaining 44 stories fall into three strategic tiers:
 
 ---
 
-#### Phase 5: Dependency Auto-Detection (1 story)
-**Why fifth:** Enhances batch UX
+#### Phase 4: Dependency Auto-Detection (1 story)
+**Why fourth:** Enhances batch UX
 
 **2-4: Auto-Detect and Install Python Dependencies** (Epic 2, deferred from Tier 3)
 - Detect requirements.txt in script directory
@@ -409,8 +555,8 @@ The remaining 44 stories fall into three strategic tiers:
 
 ---
 
-#### Phase 6: Caching System (3 stories)
-**Why sixth:** Optimization after core features proven
+#### Phase 5: Caching System (3 stories)
+**Why fifth:** Optimization after core features proven
 
 **6-1: Implement Script Content Hashing and Cache Lookup** (Epic 6)
 - Calculate script_hash = sha256(script_content)
@@ -426,11 +572,12 @@ The remaining 44 stories fall into three strategic tiers:
 - Calculate deps_hash = sha256(requirements_content)
 - Check dependency_cache table
 - Use cached pip layer if hit
-- **Complexity:** Medium
+- Docker BuildKit integration for layer caching
+- **Complexity:** High (upgraded from Medium - Docker layer caching is finicky)
 - **Risk:** Medium (Docker layer management)
-- **Estimated effort:** 6-8 hours
+- **Estimated effort:** 10-14 hours (adjusted for BuildKit complexity)
 - **Dependencies:** 6-1, 2-4
-- **Tests:** Identical deps use cache, verify layer reuse
+- **Tests:** Identical deps use cache, verify layer reuse, test invalidation
 
 **6-3: Implement Automatic Cache Invalidation** (Epic 6)
 - New hash calculated on script/deps change
@@ -444,8 +591,8 @@ The remaining 44 stories fall into three strategic tiers:
 
 ---
 
-#### Phase 7: Batch Retry (1 story)
-**Why seventh:** Builds on both batch and caching
+#### Phase 6: Batch Retry (1 story)
+**Why sixth:** Builds on both batch and caching
 
 **5-6: Implement Retry for Failed Batch Executions** (Epic 5)
 - API endpoint: POST /api/v1/executions/retry
@@ -460,7 +607,7 @@ The remaining 44 stories fall into three strategic tiers:
 
 ---
 
-#### Phase 8: Optimizations (2 stories)
+#### Phase 7: Optimizations (2 stories)
 **Why last:** Performance enhancements after core works
 
 **7-6: Implement Large File Streaming and Compression** (Epic 7)
@@ -488,15 +635,16 @@ The remaining 44 stories fall into three strategic tiers:
 
 ### Tier 5 Summary
 
-**Total Stories:** 17
-**Estimated Effort:** 94-130 hours (4-5 weeks)
-**Critical Path:** 7-2 → 7-3 → 7-1 → 5-1 → 5-2 → 5-3 → 6-1 → 6-2
+**Total Stories:** 15
+**Estimated Effort:** 86-122 hours (4-5 weeks, includes complexity adjustments)
+**Critical Path:** 7-2 → 7-3 → 7-1 → 5-3 → 6-1 → 6-2
 
 **Key Risks:**
 1. **Batch coordination complexity** - Mitigation: Use battle-tested asyncio patterns
-2. **Caching invalidation bugs** - Mitigation: Comprehensive test coverage
-3. **Large file memory issues** - Mitigation: Streaming implementation, memory profiling
+2. **Cache invalidation bugs** (CRITICAL from analyst review) - Mitigation: Comprehensive test matrix (2-3 days), all invalidation scenarios tested, cache observability instrumented
+3. **Large file memory issues** - Mitigation: Streaming implementation, memory profiling, test with 1GB+ files
 4. **Dependency installation failures** - Mitigation: Graceful error handling, fallback to base image
+5. **Docker layer caching complexity** - Mitigation: BuildKit deep-dive, extensive testing of layer reuse
 
 **Success Criteria:**
 - ✅ Process 1000 CSV files in parallel across distributed workers
@@ -507,11 +655,17 @@ The remaining 44 stories fall into three strategic tiers:
 - ✅ Dependencies auto-detected and installed from requirements.txt
 
 **Testing Requirements:**
-- Unit tests for caching logic (hash calculation, lookup)
-- Integration tests with 100+ file batches
-- Load testing with large files (1GB+)
-- Cache invalidation tests (modify scripts, verify rebuild)
-- Dependency installation tests (various requirements.txt)
+- **Unit tests:** Caching logic (hash calculation, lookup), 80%+ coverage
+- **Integration tests:** 100+ file batches, end-to-end workflows
+- **Load testing:** Large files (1GB+), memory profiling
+- **Cache invalidation matrix** (2-3 days dedicated):
+  - Script content changes
+  - Dependency changes
+  - Input file changes
+  - Edge cases (zero-byte files, missing files, partial uploads)
+- **Cache observability:** Instrument cache hit rate monitoring
+- **Dependency installation:** Various requirements.txt files, failure scenarios
+- **Documentation:** Batch execution tutorial with examples, caching behavior explained
 
 ---
 
@@ -774,10 +928,11 @@ The remaining 44 stories fall into three strategic tiers:
 **Critical Path:** 8-6 → 9-1 → 9-2 → 8-3 → 10-2
 
 **Key Risks:**
-1. **WebSocket state management** - Mitigation: Use battle-tested libraries (FastAPI WebSocket)
-2. **Cost calculation precision** - Mitigation: Integer math, comprehensive test coverage
-3. **Web console authentication** - Mitigation: Clerk integration (already in architecture)
-4. **Real-time streaming performance** - Mitigation: Load testing, connection limits
+1. **WebSocket state management** - Mitigation: Use battle-tested libraries (FastAPI WebSocket), extensive reconnection testing
+2. **WebSocket connection scaling** (NEW from analyst review) - Mitigation: Load testing BEFORE Tier 6, FastAPI default won't scale past ~100 concurrent connections; Consider Redis pub/sub for scaling
+3. **Cost calculation precision** - Mitigation: MICRONS pattern (integer math), comprehensive test coverage, no floating point
+4. **Web console authentication** - Mitigation: Clerk integration (already in architecture), implement proper API key auth BEFORE Tier 6
+5. **Real-time streaming performance** - Mitigation: Load testing with 100+ concurrent streams, connection pooling
 
 **Success Criteria:**
 - ✅ Real-time logs stream with <1s latency
@@ -789,12 +944,14 @@ The remaining 44 stories fall into three strategic tiers:
 - ✅ Execution metadata queryable and filterable
 
 **Testing Requirements:**
-- WebSocket load tests (100+ concurrent connections)
-- Cost calculation precision tests (various durations)
-- Web console UI/UX testing
-- Error message clarity review
-- Retry logic with failure injection
-- Metadata querying performance tests
+- **WebSocket load tests:** 100+ concurrent connections, measure latency and throughput
+- **WebSocket scaling research:** Test connection limits, evaluate Redis pub/sub if needed
+- **Cost calculation precision:** Various durations, verify MICRONS math, no rounding errors
+- **Web console:** UI/UX testing, authentication flows, all features functional
+- **Error message review:** User testing for clarity, ensure actionable guidance
+- **Retry logic:** Failure injection for transient vs permanent failures
+- **Metadata querying:** Performance tests with 10,000+ executions
+- **Documentation:** Web console user guide, video walkthrough, cost transparency docs
 
 ---
 
@@ -864,17 +1021,21 @@ The remaining 44 stories fall into three strategic tiers:
 
 ### Aggressive Schedule (Full-Time)
 
-- **Tier 4:** 3 weeks (15 work days)
-- **Tier 5:** 4 weeks (20 work days)
-- **Tier 6:** 3 weeks (15 work days)
-- **Total:** 10 weeks (50 work days)
+- **Tier 4:** 4 weeks (distributed execution & cloud infrastructure)
+- **Security Review:** 1 week (MANDATORY security audit)
+- **Tier 4.5:** 1 week (batch quick win)
+- **Tier 5:** 4 weeks (batch management, caching, file optimization)
+- **Tier 6:** 4 weeks (observability, billing, web interfaces)
+- **Total:** 14 weeks (70 work days)
 
 ### Moderate Schedule (Part-Time or with Unknowns)
 
-- **Tier 4:** 4 weeks (account for Hetzner complexity)
-- **Tier 5:** 5 weeks (account for caching edge cases)
-- **Tier 6:** 4 weeks (account for WebSocket testing)
-- **Total:** 13 weeks
+- **Tier 4:** 5 weeks (account for Ray/Hetzner complexity, chaos testing)
+- **Security Review:** 1 week (security audit, pen testing)
+- **Tier 4.5:** 1 week (batch execution basics)
+- **Tier 5:** 5 weeks (account for caching edge cases, cache testing)
+- **Tier 6:** 5 weeks (account for WebSocket testing, web console UX)
+- **Total:** 17 weeks
 
 ### Recommended Approach
 
@@ -886,9 +1047,11 @@ The remaining 44 stories fall into three strategic tiers:
 5. Complete Tier 6, deploy to production
 
 **Milestones:**
-- **End of Tier 4:** Distributed execution demo
-- **End of Tier 5:** Batch processing demo (1000 files)
-- **End of Tier 6:** Public MVP release
+- **End of Tier 4:** Distributed execution functional (infrastructure demo)
+- **After Security Review:** Security audit complete, ready for user code
+- **End of Tier 4.5:** Batch execution demo ("process 1000 CSVs across cloud workers")
+- **End of Tier 5:** Advanced batch + caching demo (instant re-runs)
+- **End of Tier 6:** Public MVP release with web console
 
 ---
 
@@ -980,11 +1143,29 @@ This roadmap provides a clear, dependency-aware path from the current production
 
 ---
 
-**Document Status:** Ready for Review
-**Estimated Total Effort:** 266-374 hours (10-13 weeks)
+**Document Status:** Revised after Multi-Agent Review (2025-11-15)
+**Estimated Total Effort:** 308-428 hours (14-17 weeks)
 **MVP Target:** Tier 6 Complete
-**Production Release:** After Tier 6 + Load Testing
+**Production Release:** After Tier 6 + Load Testing + Security Audit
+
+**Revisions Applied:**
+- ✅ Effort estimates adjusted +20-30% for high complexity stories (Amelia/Developer review)
+- ✅ Tier 4.5 added for immediate user value (John/PM + Bob/SM recommendation)
+- ✅ Security Review milestone added (Mary/Analyst recommendation)
+- ✅ Missing risks identified and documented (Mary/Analyst review)
+- ✅ Testing requirements enhanced (Murat/TEA review - chaos engineering, baselines, cache observability)
+- ✅ DX improvements added (Sally/UX Designer - provisioning feedback, error messages)
+- ✅ Documentation deliverables added to each tier (Paige/Tech Writer recommendation)
+
+**Key Changes from Party Mode Review:**
+1. Story count: 44 → 46 stories (added NEW-4 provisioning feedback, kept 5-1/5-2 separate)
+2. Timeline: 10-13 weeks → 14-17 weeks (more realistic with complexity buffer)
+3. Structure: 3 tiers → 4 milestones (Tier 4, Security Review, Tier 4.5, Tier 5, Tier 6)
+4. Risks: Added Hetzner limits, cache invalidation criticality, WebSocket scaling
+5. Testing: Added chaos engineering, baseline metrics, cache testing matrix
+6. Value delivery: Tier 4.5 creates natural demo point after infrastructure
 
 Good engineering is about making the complex simple and the simple boring. Let's build something reliable.
 
 🏗️ **Winston - System Architect**
+🎉 **With input from the entire BMAD party**
