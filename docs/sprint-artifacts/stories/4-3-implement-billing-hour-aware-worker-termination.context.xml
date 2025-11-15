@@ -1,0 +1,90 @@
+<story-context id=".bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>4</epicId>
+    <storyId>4.3</storyId>
+    <title>Implement Billing Hour Aware Worker Termination</title>
+    <status>drafted</status>
+    <generatedAt>2025-11-15</generatedAt>
+    <generator>BMAD Story Context Workflow (Batch)</generator>
+    <sourceStoryPath>docs/sprint-artifacts/stories/4-3-implement-billing-hour-aware-worker-termination.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>developer</asA>
+    <iWant>workers kept alive until billing hour ends</iWant>
+    <soThat>hourly costs are amortized across maximum jobs</soThat>
+    <tasks>
+      Task 1 (AC: #1)
+      - Task 2 (AC: #2)
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    1. Given** worker is provisioned at time T
+    2. When** worker completes all jobs
+    3. Then** orchestrator checks: `current_time < T + 1 hour`?
+    4. And** if yes, keep worker alive (idle)
+    5. And** if no, terminate worker via Hetzner API
+    6. And** worker record marked as terminated in database
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/architecture.md</path>
+        <title>RGrid Architecture Document</title>
+        <section>Relevant architecture decisions</section>
+        <snippet>See architecture.md for system design, component architecture, and technical constraints relevant to this story.</snippet>
+      </doc>
+      <doc>
+        <path>docs/sprint-artifacts/tech-spec-epic-4.md</path>
+        <title>Epic 4 Technical Specification</title>
+        <section>Technical details for Epic 4</section>
+        <snippet>See tech spec for detailed service breakdown, data models, APIs, and acceptance criteria specific to this epic.</snippet>
+      </doc>
+      <doc>
+        <path>docs/epics.md</path>
+        <title>RGrid Epic Breakdown</title>
+        <section>Story 4.3</section>
+        <snippet>See epics.md for complete story definition, prerequisites, and technical notes.</snippet>
+      </doc>
+    </docs>
+    <code>
+      <!-- Greenfield project - No existing code for Epic 4 stories -->
+    </code>
+    <dependencies>
+      <python>
+        <planned>
+          <!-- See tech-spec-epic-4.md for dependency details -->
+        </planned>
+      </python>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    - Follow architecture.md LLM-agent-friendly patterns
+    - File size limit: Single file MUST NOT exceed 500 lines
+    - All costs stored as BIGINT micros (1 EUR = 1,000,000 microns)
+    - Python 3.11+ minimum
+    - TDD approach: Write tests BEFORE implementation
+    - 80% test coverage minimum
+  </constraints>
+
+  <interfaces>
+    <!-- See story file and tech spec for interface details -->
+  </interfaces>
+
+  <tests>
+    <standards>
+      TDD approach per architecture.md: Write tests BEFORE implementation. Target 80% coverage minimum. Use pytest + pytest-asyncio. Test pyramid: 60% unit tests, 30% service tests, 10% integration tests.
+    </standards>
+    <locations>
+      - tests/unit/ - Unit tests
+      - tests/integration/ - Integration tests
+      - Component-specific tests/ subdirectories
+    </locations>
+    <ideas>
+      <!-- See story file Dev Notes for testing guidance -->
+    </ideas>
+  </tests>
+</story-context>

@@ -1,0 +1,33 @@
+# RGrid Local Development Environment
+# Story 1.2 will populate this with PostgreSQL, MinIO, and other services
+
+version: "3.8"
+
+services:
+  # Placeholder - will be implemented in Story 1.2
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: rgrid
+      POSTGRES_PASSWORD: rgrid_dev
+      POSTGRES_DB: rgrid
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: rgrid_dev
+      MINIO_ROOT_PASSWORD: rgrid_dev_secret
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+
+volumes:
+  postgres_data:
+  minio_data:

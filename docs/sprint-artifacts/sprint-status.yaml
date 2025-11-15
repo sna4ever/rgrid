@@ -1,0 +1,134 @@
+# generated: 2025-11-15
+# project: rgrid
+# project_key: rgrid
+# tracking_system: file-system
+# story_location: /home/sune/Projects/rgrid/docs/sprint-artifacts
+
+# STATUS DEFINITIONS:
+# ==================
+# Epic Status:
+#   - backlog: Epic exists in epic file but not contexted
+#   - contexted: Epic tech context created (required before drafting stories)
+#
+# Story Status:
+#   - backlog: Story only exists in epic file
+#   - drafted: Story file created in stories folder
+#   - ready-for-dev: Draft approved and story context created
+#   - in-progress: Developer actively working on implementation
+#   - review: Under SM review (via code-review workflow)
+#   - done: Story completed
+#
+# Retrospective Status:
+#   - optional: Can be completed but not required
+#   - completed: Retrospective has been done
+#
+# WORKFLOW NOTES:
+# ===============
+# - Epics should be 'contexted' before stories can be 'drafted'
+# - Stories can be worked in parallel if team capacity allows
+# - SM typically drafts next story after previous one is 'done' to incorporate learnings
+# - Dev moves story to 'review', SM reviews, then Dev moves to 'done'
+
+generated: 2025-11-15
+project: rgrid
+project_key: rgrid
+tracking_system: file-system
+story_location: /home/sune/Projects/rgrid/docs/sprint-artifacts
+
+development_status:
+  # Epic 1: Foundation & CLI Core
+  epic-1: contexted
+  1-1-initialize-monorepo-project-structure: ready-for-dev
+  1-2-set-up-development-environment-and-build-system: ready-for-dev
+  1-3-implement-api-key-authentication-system: ready-for-dev
+  1-4-build-cli-framework-with-click: ready-for-dev
+  1-5-implement-rgrid-init-command-for-first-time-setup: ready-for-dev
+  1-6-set-up-fastapi-backend-with-database-connection: ready-for-dev
+  epic-1-retrospective: optional
+
+  # Epic 2: Single Script Execution
+  epic-2: contexted
+  2-1-implement-rgrid-run-command-basic-stub: ready-for-dev
+  2-2-implement-docker-container-execution-on-runner: ready-for-dev
+  2-3-implement-pre-configured-runtimes: ready-for-dev
+  2-4-auto-detect-and-install-python-dependencies: ready-for-dev
+  2-5-handle-script-input-files-as-arguments: ready-for-dev
+  2-6-collect-and-store-script-outputs: ready-for-dev
+  2-7-support-environment-variables-via-env-flag: ready-for-dev
+  epic-2-retrospective: optional
+
+  # Epic 3: Distributed Orchestration (Ray)
+  epic-3: contexted
+  3-1-set-up-ray-head-node-on-control-plane: ready-for-dev
+  3-2-initialize-ray-worker-on-each-hetzner-node: ready-for-dev
+  3-3-submit-executions-as-ray-tasks: ready-for-dev
+  3-4-implement-worker-health-monitoring: ready-for-dev
+  epic-3-retrospective: optional
+
+  # Epic 4: Cloud Infrastructure (Hetzner)
+  epic-4: contexted
+  4-1-implement-hetzner-worker-provisioning-via-api: ready-for-dev
+  4-2-implement-queue-based-smart-provisioning-algorithm: ready-for-dev
+  4-3-implement-billing-hour-aware-worker-termination: ready-for-dev
+  4-4-pre-pull-common-docker-images-on-worker-init: ready-for-dev
+  4-5-implement-worker-auto-replacement-on-failure: ready-for-dev
+  epic-4-retrospective: optional
+
+  # Epic 5: Batch Execution & Parallelism
+  epic-5: contexted
+  5-1-implement-batch-flag-with-glob-pattern-expansion: ready-for-dev
+  5-2-implement-parallel-flag-for-concurrency-control: ready-for-dev
+  5-3-track-batch-execution-progress: ready-for-dev
+  5-4-organize-batch-outputs-by-input-filename: ready-for-dev
+  5-5-handle-batch-failures-gracefully: ready-for-dev
+  5-6-implement-retry-for-failed-batch-executions: ready-for-dev
+  epic-5-retrospective: optional
+
+  # Epic 6: Caching & Optimization
+  epic-6: contexted
+  6-1-implement-script-content-hashing-and-cache-lookup: ready-for-dev
+  6-2-implement-dependency-layer-caching: ready-for-dev
+  6-3-implement-automatic-cache-invalidation: ready-for-dev
+  6-4-implement-optional-input-file-caching: ready-for-dev
+  epic-6-retrospective: optional
+
+  # Epic 7: File & Artifact Management
+  epic-7: contexted
+  7-1-auto-upload-input-files-referenced-in-arguments: ready-for-dev
+  7-2-auto-collect-output-files-from-container: ready-for-dev
+  7-3-store-outputs-in-minio-with-retention-policy: ready-for-dev
+  7-4-auto-download-outputs-to-current-directory-single-execution: ready-for-dev
+  7-5-implement-remote-only-flag-to-skip-auto-download: ready-for-dev
+  7-6-implement-large-file-streaming-and-compression: ready-for-dev
+  epic-7-retrospective: optional
+
+  # Epic 8: Observability & Real-time Feedback
+  epic-8: contexted
+  8-1-implement-rgrid-status-command: ready-for-dev
+  8-2-implement-rgrid-logs-command-with-historical-logs: ready-for-dev
+  8-3-implement-websocket-log-streaming-for-real-time-logs: ready-for-dev
+  8-4-implement-cli-reconnection-for-websocket-streams: ready-for-dev
+  8-5-implement-batch-progress-display-with-watch: ready-for-dev
+  8-6-track-execution-metadata-in-database: ready-for-dev
+  epic-8-retrospective: optional
+
+  # Epic 9: Cost Tracking & Billing
+  epic-9: contexted
+  9-1-implement-microns-cost-calculation: ready-for-dev
+  9-2-implement-billing-hour-cost-amortization: ready-for-dev
+  9-3-implement-rgrid-cost-command: ready-for-dev
+  9-4-implement-cost-estimation-for-batch-executions: ready-for-dev
+  9-5-implement-cost-alerts-future-enhancement: ready-for-dev
+  epic-9-retrospective: optional
+
+  # Epic 10: Web Interfaces & MVP Polish
+  epic-10: contexted
+  10-1-build-marketing-website-landing-page: ready-for-dev
+  10-2-build-console-dashboard-with-execution-history: ready-for-dev
+  10-3-implement-download-outputs-via-console: ready-for-dev
+  10-4-implement-structured-error-handling-with-clear-messages: ready-for-dev
+  10-5-implement-network-failure-graceful-handling: ready-for-dev
+  10-6-implement-manual-retry-command: ready-for-dev
+  10-7-implement-auto-retry-for-transient-failures: ready-for-dev
+  10-8-implement-execution-metadata-tagging: ready-for-dev
+  epic-10-retrospective: optional

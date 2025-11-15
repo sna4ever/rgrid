@@ -1,0 +1,89 @@
+<story-context id=".bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>1</epicId>
+    <storyId>1.3</storyId>
+    <title>Implement API Key Authentication System</title>
+    <status>drafted</status>
+    <generatedAt>2025-11-15</generatedAt>
+    <generator>BMAD Story Context Workflow (Batch)</generator>
+    <sourceStoryPath>docs/sprint-artifacts/stories/1-3-implement-api-key-authentication-system.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>developer</asA>
+    <iWant>a secure API key authentication system following AWS credentials pattern</iWant>
+    <soThat>CLI users can authenticate without exposing secrets in project files</soThat>
+    <tasks>
+      Task 1 (AC: #1)
+      - Task 2 (AC: #2)
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    1. Given** the database schema for `api_keys` table (see architecture.md)
+    2. When** a user generates an API key
+    3. Then** the key is bcrypt-hashed before storage
+    4. And** the key follows format: `sk_live_` + 32 random characters
+    5. And** keys are stored in `api_keys` table with account_id, created_at, last_used_at
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/architecture.md</path>
+        <title>RGrid Architecture Document</title>
+        <section>Relevant architecture decisions</section>
+        <snippet>See architecture.md for system design, component architecture, and technical constraints relevant to this story.</snippet>
+      </doc>
+      <doc>
+        <path>docs/sprint-artifacts/tech-spec-epic-1.md</path>
+        <title>Epic 1 Technical Specification</title>
+        <section>Technical details for Epic 1</section>
+        <snippet>See tech spec for detailed service breakdown, data models, APIs, and acceptance criteria specific to this epic.</snippet>
+      </doc>
+      <doc>
+        <path>docs/epics.md</path>
+        <title>RGrid Epic Breakdown</title>
+        <section>Story 1.3</section>
+        <snippet>See epics.md for complete story definition, prerequisites, and technical notes.</snippet>
+      </doc>
+    </docs>
+    <code>
+      <!-- Greenfield project - No existing code for Epic 1 stories -->
+    </code>
+    <dependencies>
+      <python>
+        <planned>
+          <!-- See tech-spec-epic-1.md for dependency details -->
+        </planned>
+      </python>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    - Follow architecture.md LLM-agent-friendly patterns
+    - File size limit: Single file MUST NOT exceed 500 lines
+    - All costs stored as BIGINT micros (1 EUR = 1,000,000 microns)
+    - Python 3.11+ minimum
+    - TDD approach: Write tests BEFORE implementation
+    - 80% test coverage minimum
+  </constraints>
+
+  <interfaces>
+    <!-- See story file and tech spec for interface details -->
+  </interfaces>
+
+  <tests>
+    <standards>
+      TDD approach per architecture.md: Write tests BEFORE implementation. Target 80% coverage minimum. Use pytest + pytest-asyncio. Test pyramid: 60% unit tests, 30% service tests, 10% integration tests.
+    </standards>
+    <locations>
+      - tests/unit/ - Unit tests
+      - tests/integration/ - Integration tests
+      - Component-specific tests/ subdirectories
+    </locations>
+    <ideas>
+      <!-- See story file Dev Notes for testing guidance -->
+    </ideas>
+  </tests>
+</story-context>

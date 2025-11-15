@@ -1,0 +1,63 @@
+# Story 5.2: Implement --parallel Flag for Concurrency Control
+
+Status: ready-for-dev
+
+## Story
+
+As developer,
+I want to control max parallel executions via --parallel flag,
+So that I can limit infrastructure usage.
+
+## Acceptance Criteria
+
+1. Given** I run `rgrid run script.py --batch data/*.csv --parallel 20`
+2. When** batch starts
+3. Then** CLI submits first 20 executions immediately
+4. And** as each execution completes, CLI submits next execution
+5. And** max 20 executions run concurrently
+6. And** default parallelism = 10 if flag omitted
+
+## Tasks / Subtasks
+
+- [ ] Task 1 (AC: #1)
+  - [ ] Subtask 1.1
+- [ ] Task 2 (AC: #2)
+  - [ ] Subtask 2.1
+
+## Dev Notes
+
+### Prerequisites
+
+Story 5.1
+
+### Technical Notes
+
+
+
+### References
+
+- [Source: docs/epics.md - Story 5.2]
+- [Source: docs/sprint-artifacts/tech-spec-epic-5.md]
+- [Source: docs/architecture.md]
+
+## Dev Agent Record
+
+### Context Reference
+
+- docs/sprint-artifacts/stories/5-2-implement-parallel-flag-for-concurrency-control.context.xml
+
+### Agent Model Used
+
+<!-- To be filled during implementation -->
+
+### Debug Log References
+
+<!-- To be filled during implementation -->
+
+### Completion Notes List
+
+<!-- To be filled during implementation -->
+
+### File List
+
+<!-- To be filled during implementation -->

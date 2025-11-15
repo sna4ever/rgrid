@@ -1,0 +1,134 @@
+<story-context id=".bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>1</epicId>
+    <storyId>1.1</storyId>
+    <title>Initialize Monorepo Project Structure</title>
+    <status>drafted</status>
+    <generatedAt>2025-11-15</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/stories/1-1-initialize-monorepo-project-structure.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>developer</asA>
+    <iWant>a properly structured monorepo with all components organized logically</iWant>
+    <soThat>I can develop API, orchestrator, runner, CLI, and web apps in a cohesive codebase</soThat>
+    <tasks>
+      - Create root directory structure (AC: #1, #2)
+      - Set up Python package structure (AC: #3)
+      - Create shared common package (AC: #4)
+      - Set up infrastructure scaffolding (AC: #1)
+      - Initialize test structure (AC: #1)
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    1. Directory structure follows the architecture with api/, orchestrator/, runner/, cli/, console/, website/, common/, infra/, tests/, docs/
+    2. Root includes: pyproject.toml, .gitignore, README.md, Makefile
+    3. Each Python component has pyproject.toml with dependencies
+    4. Shared common/ package is installable via pip install -e common/
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/architecture.md</path>
+        <title>RGrid Architecture Document</title>
+        <section>Decision 1: Project Structure & Monorepo Layout</section>
+        <snippet>Monorepo with shared Python package for common code. Atomic changes across CLI + API + orchestrator. Structure includes rgrid/, rgrid_common/, cli/, api/, orchestrator/, runner/, console/, website/, infra/, tests/, docs/</snippet>
+      </doc>
+      <doc>
+        <path>docs/architecture.md</path>
+        <title>RGrid Architecture Document</title>
+        <section>Decision 7: LLM-Agent Friendly Code</section>
+        <snippet>Stable folder structure, Pydantic everywhere, pure service functions, explicit SQLAlchemy types, comprehensive docstrings, no magic, single responsibility, consistent naming patterns, test-friendly dependency injection, OpenAPI-first</snippet>
+      </doc>
+      <doc>
+        <path>docs/sprint-artifacts/tech-spec-epic-1.md</path>
+        <title>Epic Technical Specification: Foundation & CLI Core</title>
+        <section>Services and Modules</section>
+        <snippet>Detailed module breakdown: cli/rgrid/, api/main.py, api/routes/, api/services/, api/models/, common/, infra/docker-compose.yml. Each component has specific responsibilities for CLI entry point, authentication, health checks, database/storage infrastructure.</snippet>
+      </doc>
+      <doc>
+        <path>docs/sprint-artifacts/tech-spec-epic-1.md</path>
+        <title>Epic Technical Specification: Foundation & CLI Core</title>
+        <section>Dependencies and Integrations</section>
+        <snippet>Python 3.11+, Poetry/uv for dependency management. API: FastAPI, uvicorn, SQLAlchemy 2.0, asyncpg, alembic, pydantic, bcrypt, boto3. CLI: click, httpx, rich, configparser. Common: pydantic. Dev tools: pytest, black, ruff, mypy, pre-commit.</snippet>
+      </doc>
+      <doc>
+        <path>docs/epics.md</path>
+        <title>rgrid - Epic Breakdown</title>
+        <section>Story 1.1: Initialize Monorepo Project Structure</section>
+        <snippet>As a developer, I want a properly structured monorepo with all components organized logically, so that I can develop API, orchestrator, runner, CLI, and web apps in a cohesive codebase. Use Poetry or uv for Python dependency management. Monorepo pattern from architecture.md Decision 1.</snippet>
+      </doc>
+    </docs>
+    <code>
+      <!-- No existing code - greenfield project, Story 1.1 creates initial structure -->
+    </code>
+    <dependencies>
+      <python>
+        <planned>
+          <!-- From tech-spec-epic-1.md, these will be added in this story -->
+          <api>fastapi>=0.104.0, uvicorn[standard]>=0.24.0, sqlalchemy>=2.0.0, asyncpg>=0.29.0, alembic>=1.12.0, pydantic>=2.5.0, pydantic-settings>=2.1.0, python-dotenv>=1.0.0, bcrypt>=4.1.0, boto3>=1.29.0</api>
+          <cli>click>=8.1.0, httpx>=0.25.0, rich>=13.7.0, configparser>=6.0.0</cli>
+          <common>pydantic>=2.5.0</common>
+          <dev>pytest>=7.4.0, pytest-asyncio>=0.21.0, pytest-cov>=4.1.0, black>=23.11.0, ruff>=0.1.6, mypy>=1.7.0, pre-commit>=3.5.0</dev>
+        </planned>
+      </python>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    - MUST follow monorepo pattern from architecture.md Decision 1 (lines 461-540)
+    - One-way dependencies: cli/api/orchestrator → common (never reverse)
+    - Each component independently testable
+    - Shared common/ package has ZERO external dependencies for portability
+    - All costs stored as BIGINT micros (1 EUR = 1,000,000 microns) from Day 1
+    - File size limit: Single file MUST NOT exceed 500 lines
+    - LLM-agent-friendly patterns: stable folder structure, Pydantic everywhere, pure service functions, explicit types, comprehensive docstrings, no magic, single responsibility
+    - Python version: 3.11+ minimum
+    - Use Poetry or uv for dependency management
+    - .gitignore MUST exclude venv/, __pycache__/, .env, ~/.rgrid/, *secret*, *key*
+  </constraints>
+
+  <interfaces>
+    <!-- No existing interfaces - Story 1.1 establishes structure only -->
+    <planned>
+      <interface>
+        <name>common package import</name>
+        <kind>Python package</kind>
+        <signature>pip install -e common/</signature>
+        <path>common/pyproject.toml</path>
+      </interface>
+      <interface>
+        <name>Makefile targets</name>
+        <kind>Build automation</kind>
+        <signature>make setup, make test, make lint, make format, make clean</signature>
+        <path>Makefile</path>
+      </interface>
+    </planned>
+  </interfaces>
+
+  <tests>
+    <standards>
+      TDD approach per architecture.md: Write tests BEFORE implementation. Target 80% coverage minimum. Use pytest + pytest-asyncio for all tests. Test pyramid: 60% unit tests (pure functions, models), 30% service tests (mocked dependencies), 10% integration tests (full flows). Coverage enforcement via pytest.ini.
+    </standards>
+    <locations>
+      - tests/unit/ - Unit tests for pure functions, models, utilities
+      - tests/integration/ - End-to-end flows
+      - tests/conftest.py - Pytest configuration and fixtures
+      - Each component (api/, cli/, orchestrator/, runner/) should have tests/ subdirectory
+    </locations>
+    <ideas>
+      <test ac="1">Verify directory structure exists with correct hierarchy (api/, orchestrator/, runner/, cli/, console/, website/, common/, infra/, tests/, docs/)</test>
+      <test ac="1">Verify each subdirectory has proper Python package structure (__init__.py files)</test>
+      <test ac="2">Verify root files exist: pyproject.toml, .gitignore, README.md, Makefile</test>
+      <test ac="2">Verify .gitignore excludes venv/, __pycache__/, .env, credentials</test>
+      <test ac="3">Verify each Python component has valid pyproject.toml with correct dependencies</test>
+      <test ac="3">Test pyproject.toml parses correctly with Poetry/uv</test>
+      <test ac="4">Test pip install -e common/ succeeds</test>
+      <test ac="4">Test importing from rgrid_common package works</test>
+      <test ac="4">Verify common/ has Money class and types module</test>
+    </ideas>
+  </tests>
+</story-context>
