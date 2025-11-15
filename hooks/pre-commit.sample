@@ -1,0 +1,31 @@
+#!/bin/bash
+# Pre-commit hook to run tests before allowing commit
+# This ensures all code changes include passing tests
+#
+# INSTALLATION:
+#   cp hooks/pre-commit.sample .git/hooks/pre-commit
+#   chmod +x .git/hooks/pre-commit
+
+set -e  # Exit on first error
+
+echo "🧪 Running test suite before commit..."
+echo ""
+
+# Check if venv exists
+if [ ! -d "venv" ]; then
+    echo "❌ Virtual environment not found. Run 'make setup' first."
+    exit 1
+fi
+
+# Run pytest with minimal output
+if venv/bin/pytest tests/ -q --tb=short; then
+    echo ""
+    echo "✅ All tests passing - commit allowed"
+    exit 0
+else
+    echo ""
+    echo "❌ Tests failing - commit blocked"
+    echo ""
+    echo "Fix the failing tests or use 'git commit --no-verify' to bypass (not recommended)"
+    exit 1
+fi
