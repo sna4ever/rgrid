@@ -125,6 +125,335 @@ RGrid is a distributed compute platform for running Python scripts remotely with
 10. CLI downloads outputs automatically
 ```
 
+### Detailed Execution Flow (Sequence Diagram)
+
+```
+┌─────┐  ┌─────┐  ┌──────┐  ┌──────┐  ┌────────┐  ┌───────┐
+│ CLI │  │ API │  │  Ray │  │Worker│  │ Docker │  │ MinIO │
+└──┬──┘  └──┬──┘  └───┬──┘  └───┬──┘  └────┬───┘  └───┬───┘
+   │         │         │         │          │          │
+   │ 1. Generate presigned upload URL                  │
+   │────────>│                                          │
+   │<────────│                                          │
+   │         │         │         │          │          │
+   │ 2. Upload script.py via presigned URL             │
+   │───────────────────────────────────────────────────>│
+   │<──────────────────────────────────────────────────│
+   │         │         │         │          │          │
+   │ 3. Upload input.json via presigned URL            │
+   │───────────────────────────────────────────────────>│
+   │<──────────────────────────────────────────────────│
+   │         │         │          │          │          │
+   │ 4. POST /v1/executions (script_key, input_keys)   │
+   │────────>│         │         │          │          │
+   │         │         │         │          │          │
+   │         │ 5. Calculate script_hash (SHA256)       │
+   │         │         │         │          │          │
+   │         │ 6. Check cache (content_hash_cache)     │
+   │         │         │         │          │          │
+   │         │ 7. Check account credits                │
+   │         │         │         │          │          │
+   │         │ 8. Deduct estimated cost                │
+   │         │         │         │          │          │
+   │         │ 9. INSERT execution (status=pending)    │
+   │         │         │         │          │          │
+   │         │ 10. Submit Ray task                     │
+   │         │────────>│         │          │          │
+   │         │         │ 11. Assign to worker          │
+   │         │         │────────>│          │          │
+   │         │         │         │          │          │
+   │<────────│ 12. Return execution_id                 │
+   │         │         │         │          │          │
+   │ 13. Connect WebSocket /v1/executions/{id}/logs    │
+   │────────>│         │         │          │          │
+   │         │         │         │          │          │
+   │         │         │         │ 14. Download script.py
+   │         │         │         │<─────────────────────│
+   │         │         │         │          │          │
+   │         │         │         │ 15. Check Docker cache
+   │         │         │         │          │          │
+   │         │         │         │ 16. Build/pull image │
+   │         │         │         │────────>│          │
+   │         │         │         │<────────│          │
+   │         │         │         │          │          │
+   │         │         │         │ 17. Download input.json
+   │         │         │         │<─────────────────────│
+   │         │         │         │          │          │
+   │         │         │         │ 18. docker run script.py
+   │         │         │         │────────>│          │
+   │         │         │         │          │          │
+   │         │         │         │ 19. Capture stdout/stderr
+   │         │         │         │<─────── │          │
+   │         │         │         │          │          │
+   │         │         │         │ 20. Stream logs via WS
+   │         │         │         │──────────>          │
+   │<────────│<────────│<────────│          │          │
+   │         │         │         │          │          │
+   │         │         │         │ 21. Container exits │
+   │         │         │         │<─────── │          │
+   │         │         │         │          │          │
+   │         │         │         │ 22. Upload output.json
+   │         │         │         │──────────────────────>│
+   │         │         │         │          │          │
+   │         │         │         │ 23. Update execution status=completed
+   │         │         │         │──────────>          │
+   │         │         │<────────│          │          │
+   │         │<────────│         │          │          │
+   │         │         │         │          │          │
+   │ 24. WebSocket: execution complete                 │
+   │<────────│         │         │          │          │
+   │         │         │         │          │          │
+   │ 25. GET /v1/executions/{id}/artifacts              │
+   │────────>│         │         │          │          │
+   │         │         │         │          │          │
+   │         │ 26. Generate presigned download URLs    │
+   │         │──────────────────────────────────────────>│
+   │<────────│<──────────────────────────────────────────│
+   │         │         │         │          │          │
+   │ 27. Download output.json via presigned URL        │
+   │───────────────────────────────────────────────────>│
+   │<──────────────────────────────────────────────────│
+   │         │         │         │          │          │
+```
+
+**Key Interaction Points:**
+
+1. **CLI → API:** HTTPS with API Key authentication
+2. **CLI → MinIO:** Direct upload/download via presigned URLs (bypasses API for large files)
+3. **API → Ray:** Task submission via `ray.remote()` decorator
+4. **Ray → Worker:** Task assignment via Ray scheduler
+5. **Worker → Docker:** Container execution via Docker Python SDK
+6. **Worker → MinIO:** Artifact upload via presigned URLs
+7. **Worker → API (WebSocket):** Real-time log streaming
+
+**Error Handling at Each Step:**
+
+- **Step 4-8:** API validates credits, returns 402 if insufficient
+- **Step 11:** Ray retries task if worker fails (max 3 attempts)
+- **Step 14-17:** Worker retries MinIO downloads (exponential backoff)
+- **Step 18:** Container timeout enforcement (kills after configured timeout)
+- **Step 22:** Upload failure causes execution status=failed
+
+---
+
+## Domain Model
+
+### Core Entities
+
+**Account**
+- **Purpose:** Represents a customer (individual or team)
+- **Properties:**
+  - `id` (UUID, primary key)
+  - `name` (String, required)
+  - `credit_balance_microns` (BIGINT, default: 0)
+  - `clerk_org_id` (String, unique, nullable for CLI-only users)
+  - `created_at` (DateTime)
+  - `updated_at` (DateTime)
+- **Invariants:**
+  - `credit_balance_microns ≥ 0` (enforced at application level)
+  - Each Account has at least one User (creator)
+- **Relationships:**
+  - Has many Users (via Memberships)
+  - Has many Executions
+  - Has many API Keys
+
+**User**
+- **Purpose:** Individual person with authentication
+- **Properties:**
+  - `id` (UUID, primary key)
+  - `email` (String, unique, required)
+  - `clerk_user_id` (String, unique, required)
+  - `created_at` (DateTime)
+- **Invariants:**
+  - `email` must be valid email format
+  - `clerk_user_id` must match Clerk user
+- **Relationships:**
+  - Belongs to many Accounts (via Memberships)
+  - Has many API Keys (personal keys)
+
+**Membership**
+- **Purpose:** Join table linking Users to Accounts with roles
+- **Properties:**
+  - `id` (UUID, primary key)
+  - `account_id` (UUID, foreign key)
+  - `user_id` (UUID, foreign key)
+  - `role` (Enum: 'owner', 'admin', 'member')
+  - `created_at` (DateTime)
+- **Invariants:**
+  - Each Account must have at least one 'owner'
+  - Users cannot have duplicate memberships to same Account
+- **Relationships:**
+  - Belongs to Account
+  - Belongs to User
+
+**Execution**
+- **Purpose:** Represents a single script execution (job)
+- **Properties:**
+  - `id` (UUID, primary key)
+  - `account_id` (UUID, foreign key)
+  - `script_hash` (String, SHA256, indexed)
+  - `script_key` (String, MinIO object key)
+  - `runtime` (String, e.g., "python:3.11")
+  - `status` (Enum: 'pending', 'running', 'completed', 'failed', 'timeout', 'cancelled')
+  - `estimated_cost_microns` (BIGINT)
+  - `finalized_cost_microns` (BIGINT, nullable until complete)
+  - `worker_id` (UUID, foreign key, nullable)
+  - `ray_task_id` (String, nullable)
+  - `started_at` (DateTime, nullable)
+  - `completed_at` (DateTime, nullable)
+  - `timeout_seconds` (Integer, default: 300)
+  - `exit_code` (Integer, nullable)
+  - `created_at` (DateTime)
+- **State Transitions:**
+  ```
+  pending → running → completed
+          → running → failed
+          → running → timeout
+          → cancelled (if cancelled before running)
+  ```
+- **Invariants:**
+  - `status=completed` requires `exit_code=0`
+  - `status=failed` requires `exit_code!=0`
+  - `finalized_cost_microns` only set when status in ('completed', 'failed', 'timeout')
+  - Cannot transition from terminal state (completed, failed, timeout, cancelled)
+- **Relationships:**
+  - Belongs to Account
+  - Belongs to Worker (nullable if not yet assigned)
+  - Has many Artifacts
+  - Has many Log entries
+
+**Worker**
+- **Purpose:** Represents a Hetzner CX22 compute node
+- **Properties:**
+  - `id` (UUID, primary key)
+  - `hetzner_server_id` (Integer, unique)
+  - `ip_address` (String)
+  - `status` (Enum: 'provisioning', 'active', 'draining', 'terminating', 'terminated')
+  - `billing_hour_started_at` (DateTime)
+  - `billing_hour_ends_at` (DateTime)
+  - `billing_hour_cost_microns` (BIGINT, e.g., 5000 for €0.005)
+  - `max_concurrent_jobs` (Integer, default: 2)
+  - `current_job_count` (Integer, default: 0)
+  - `last_heartbeat_at` (DateTime)
+  - `created_at` (DateTime)
+  - `terminated_at` (DateTime, nullable)
+- **State Transitions:**
+  ```
+  provisioning → active → draining → terminating → terminated
+  ```
+- **Invariants:**
+  - `current_job_count ≤ max_concurrent_jobs`
+  - Workers are NEVER scoped to specific accounts (shared pool)
+  - `billing_hour_ends_at = billing_hour_started_at + 1 hour`
+  - Workers should not be terminated within billing hour
+- **Relationships:**
+  - Has many Executions (currently assigned)
+
+**Artifact**
+- **Purpose:** Represents a file (input or output) associated with an execution
+- **Properties:**
+  - `id` (UUID, primary key)
+  - `execution_id` (UUID, foreign key)
+  - `artifact_type` (Enum: 'input', 'output', 'log')
+  - `filename` (String)
+  - `object_key` (String, MinIO key)
+  - `size_bytes` (BIGINT)
+  - `content_type` (String)
+  - `created_at` (DateTime)
+- **Invariants:**
+  - `artifact_type=log` requires `filename` ends with `.log`
+  - `size_bytes > 0`
+- **Relationships:**
+  - Belongs to Execution
+
+**APIKey**
+- **Purpose:** Authentication credentials for CLI access
+- **Properties:**
+  - `id` (UUID, primary key)
+  - `account_id` (UUID, foreign key)
+  - `user_id` (UUID, foreign key, nullable for account-level keys)
+  - `key_hash` (String, bcrypt hash)
+  - `key_prefix` (String, e.g., "sk_live_abc...")
+  - `name` (String, user-defined label)
+  - `last_used_at` (DateTime, nullable)
+  - `created_at` (DateTime)
+  - `revoked_at` (DateTime, nullable)
+- **Invariants:**
+  - `key_hash` stored with bcrypt (never plaintext)
+  - API key shown to user only once at creation
+  - Revoked keys cannot be un-revoked
+- **Relationships:**
+  - Belongs to Account
+  - Belongs to User (nullable)
+
+### Domain Events
+
+**ExecutionCreated**
+- Triggered when: New execution inserted into database
+- Payload: `execution_id`, `account_id`, `script_hash`, `estimated_cost_microns`
+- Consumers: Ray scheduler (to assign worker)
+
+**ExecutionCompleted**
+- Triggered when: Execution status changes to 'completed', 'failed', or 'timeout'
+- Payload: `execution_id`, `status`, `finalized_cost_microns`, `exit_code`
+- Consumers: Billing service (to finalize costs)
+
+**WorkerProvisioned**
+- Triggered when: New worker becomes 'active'
+- Payload: `worker_id`, `ip_address`, `billing_hour_started_at`
+- Consumers: Orchestrator (to update worker pool metrics)
+
+**WorkerTerminated**
+- Triggered when: Worker status changes to 'terminated'
+- Payload: `worker_id`, `billing_hour_cost_microns`, `total_jobs_executed`
+- Consumers: Billing service (to amortize costs across executions)
+
+**CreditBalanceLow**
+- Triggered when: Account credit balance drops below threshold (e.g., 100,000 microns = €0.10)
+- Payload: `account_id`, `current_balance_microns`
+- Consumers: Notification service (email user to add credits)
+
+### Architectural Invariants
+
+**Rules that MUST always hold:**
+
+1. **Workers are never scoped to accounts** - Workers serve all accounts from shared pool (cost optimization)
+2. **Credit balance cannot go negative** - Execution rejected if insufficient credits
+3. **Execution state transitions are one-way** - Cannot move from terminal state (completed, failed, timeout) to non-terminal
+4. **Worker billing hours are sacred** - Workers not terminated within billing hour (maximize utilization)
+5. **Script execution is deterministic** - Same script + dependencies + inputs = same output (cached)
+6. **All costs stored in MICRONS** - Never use floats for money (1 EUR = 1,000,000 microns)
+7. **Worker capacity enforced** - `current_job_count ≤ max_concurrent_jobs` (2 jobs per CX22)
+8. **MinIO is source of truth for artifacts** - Database stores metadata only, MinIO stores content
+9. **Clerk is source of truth for user identity** - No password storage, delegate to Clerk
+10. **API keys are immutable** - Cannot change key value, only revoke and create new
+
+### Domain Glossary
+
+**MICRONS** - Cost unit where 1 EUR = 1,000,000 microns (prevents floating-point errors in billing)
+
+**Billing Hour** - 60-minute window during which worker cost is amortized across all executions
+
+**Script Hash** - SHA256 hash of script content, used for caching and deduplication
+
+**Content Hash** - Combined hash of script + dependencies + inputs, used for complete result caching
+
+**Execution** - Single invocation of a script with specific inputs (synonymous with "job")
+
+**Worker** - Ephemeral Hetzner CX22 server running Ray worker + Docker
+
+**Artifact** - File associated with execution (input, output, or log)
+
+**Presigned URL** - Temporary MinIO URL allowing direct upload/download without API proxy
+
+**Ray Task** - Unit of work submitted to Ray cluster via `@ray.remote` decorator
+
+**Shared Worker Pool** - Workers serve all accounts (not dedicated per account) for cost efficiency
+
+**Account** - Customer entity (individual or team) with credit balance and executions
+
+**Membership** - Association between User and Account with role (owner, admin, member)
+
 ---
 
 ## Architecture Decisions
@@ -2441,6 +2770,311 @@ jobs:
 - Ray dashboard (built-in)
 - Application logs (JSON structured)
 
+### Configuration Management
+
+**Approach:** Pydantic Settings with environment variables
+
+RGrid uses Pydantic's `BaseSettings` class to manage configuration across all services. This provides type safety, validation, and clear documentation of required environment variables.
+
+#### Settings Class Implementation
+
+**api/app/core/config.py:**
+
+```python
+from pydantic_settings import BaseSettings
+from typing import Optional
+
+class Settings(BaseSettings):
+    """
+    Application settings loaded from environment variables.
+
+    Usage:
+        settings = Settings()  # Reads from .env file or environment
+        database_url = settings.DATABASE_URL
+    """
+
+    # Application
+    ENVIRONMENT: str = "development"  # development, staging, production
+    DEBUG: bool = False
+    LOG_LEVEL: str = "INFO"
+
+    # Database
+    DATABASE_URL: str  # postgresql://user:pass@host:port/db
+    DATABASE_POOL_SIZE: int = 10
+    DATABASE_MAX_OVERFLOW: int = 20
+
+    # MinIO (S3 Compatible Storage)
+    MINIO_ENDPOINT: str  # e.g., "minio:9000"
+    MINIO_ACCESS_KEY: str
+    MINIO_SECRET_KEY: str
+    MINIO_BUCKET_NAME: str = "rgrid-artifacts"
+    MINIO_USE_SSL: bool = False
+    MINIO_PRESIGNED_URL_EXPIRY_SECONDS: int = 3600
+
+    # Clerk Authentication
+    CLERK_SECRET_KEY: str
+    CLERK_PUBLISHABLE_KEY: str
+    CLERK_WEBHOOK_SECRET: Optional[str] = None
+
+    # Stripe Payments
+    STRIPE_SECRET_KEY: str
+    STRIPE_PUBLISHABLE_KEY: str
+    STRIPE_WEBHOOK_SECRET: str
+    STRIPE_PRICE_ID_CREDITS: str  # Price ID for credit purchases
+
+    # Hetzner Cloud
+    HETZNER_API_TOKEN: str
+    HETZNER_NETWORK_ID: int  # Private network ID
+    HETZNER_SSH_KEY_ID: int  # SSH key for worker access
+    HETZNER_LOCATION: str = "nbg1"  # Nuremberg datacenter
+
+    # Ray Cluster
+    RAY_HEAD_ADDRESS: str = "10.0.0.1:10001"  # Control plane private IP
+    RAY_DASHBOARD_PORT: int = 8265
+
+    # Worker Configuration
+    WORKER_MAX_CONCURRENT_JOBS: int = 2  # CX22 has 2 vCPU
+    WORKER_BILLING_HOUR_COST_MICRONS: int = 5000  # €0.005/hour
+    WORKER_PROVISIONING_THRESHOLD_MINUTES: int = 10
+    WORKER_HEARTBEAT_INTERVAL_SECONDS: int = 30
+    WORKER_HEARTBEAT_TIMEOUT_SECONDS: int = 120
+
+    # Execution Defaults
+    EXECUTION_DEFAULT_TIMEOUT_SECONDS: int = 300  # 5 minutes
+    EXECUTION_MAX_TIMEOUT_SECONDS: int = 3600  # 1 hour
+    EXECUTION_DEFAULT_RUNTIME: str = "python:3.11"
+
+    # Cache Configuration
+    CACHE_SCRIPT_TTL_DAYS: int = 90
+    CACHE_DEPENDENCY_TTL_DAYS: int = 30
+    CACHE_INPUT_TTL_DAYS: int = 7
+
+    # Cost & Billing
+    CREDIT_LOW_BALANCE_THRESHOLD_MICRONS: int = 100_000  # €0.10
+    CREDIT_INITIAL_BALANCE_MICRONS: int = 0
+
+    # Security
+    API_KEY_LENGTH: int = 32
+    API_KEY_PREFIX: str = "sk_live_"
+    BCRYPT_ROUNDS: int = 12
+
+    # Rate Limiting
+    RATE_LIMIT_PER_MINUTE: int = 60
+    RATE_LIMIT_PER_HOUR: int = 1000
+
+    # CORS
+    CORS_ORIGINS: list[str] = ["http://localhost:3000", "https://app.rgrid.dev"]
+
+    class Config:
+        env_file = ".env"
+        env_file_encoding = "utf-8"
+        case_sensitive = False  # DATABASE_URL = database_url
+
+# Singleton instance
+settings = Settings()
+```
+
+#### Environment Variables Template
+
+**.env.example** (committed to git as template):
+
+```bash
+# Environment
+ENVIRONMENT=development
+DEBUG=true
+LOG_LEVEL=DEBUG
+
+# Database (Supabase or self-hosted Postgres)
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/rgrid
+
+# MinIO S3 Storage
+MINIO_ENDPOINT=localhost:9000
+MINIO_ACCESS_KEY=minioadmin
+MINIO_SECRET_KEY=minioadmin
+MINIO_BUCKET_NAME=rgrid-artifacts
+MINIO_USE_SSL=false
+
+# Clerk Authentication
+CLERK_SECRET_KEY=sk_test_xxxxx
+CLERK_PUBLISHABLE_KEY=pk_test_xxxxx
+CLERK_WEBHOOK_SECRET=whsec_xxxxx
+
+# Stripe Payments
+STRIPE_SECRET_KEY=sk_test_xxxxx
+STRIPE_PUBLISHABLE_KEY=pk_test_xxxxx
+STRIPE_WEBHOOK_SECRET=whsec_xxxxx
+STRIPE_PRICE_ID_CREDITS=price_xxxxx
+
+# Hetzner Cloud
+HETZNER_API_TOKEN=xxxxx
+HETZNER_NETWORK_ID=12345
+HETZNER_SSH_KEY_ID=67890
+HETZNER_LOCATION=nbg1
+
+# Ray Cluster
+RAY_HEAD_ADDRESS=10.0.0.1:10001
+
+# Worker Configuration
+WORKER_MAX_CONCURRENT_JOBS=2
+WORKER_BILLING_HOUR_COST_MICRONS=5000
+```
+
+#### **.env** (local development, never committed):
+
+```bash
+# Copy .env.example to .env and fill in real values
+# This file is in .gitignore and contains actual secrets
+```
+
+#### Secrets Rotation Strategy
+
+**API Keys:**
+- Users can create/revoke API keys via console
+- Old keys remain valid until explicitly revoked
+- Key rotation does not require code deployment
+
+**Service Secrets (Clerk, Stripe, Hetzner):**
+1. Generate new secret in provider dashboard
+2. Update secret in environment (Docker secrets or .env)
+3. Restart service (zero-downtime: rolling restart)
+4. Revoke old secret in provider dashboard
+
+**Database Password:**
+1. Create new password in Supabase/Postgres
+2. Update DATABASE_URL environment variable
+3. Rolling restart API containers
+4. Old password disabled after all containers restarted
+
+#### Configuration Access in Code
+
+**In API routes:**
+
+```python
+from fastapi import Depends
+from app.core.config import settings
+
+@router.get("/config/info")
+async def get_config_info():
+    """Public configuration info (no secrets)."""
+    return {
+        "environment": settings.ENVIRONMENT,
+        "default_runtime": settings.EXECUTION_DEFAULT_RUNTIME,
+        "max_timeout": settings.EXECUTION_MAX_TIMEOUT_SECONDS
+    }
+```
+
+**In service layer:**
+
+```python
+from app.core.config import settings
+
+async def upload_to_minio(file_content: bytes, object_key: str):
+    """Upload file to MinIO."""
+    client = Minio(
+        endpoint=settings.MINIO_ENDPOINT,
+        access_key=settings.MINIO_ACCESS_KEY,
+        secret_key=settings.MINIO_SECRET_KEY,
+        secure=settings.MINIO_USE_SSL
+    )
+    client.put_object(settings.MINIO_BUCKET_NAME, object_key, file_content)
+```
+
+**In tests (mocking):**
+
+```python
+from unittest.mock import patch
+from app.core.config import Settings
+
+def test_upload_to_minio():
+    """Test MinIO upload with mocked settings."""
+    test_settings = Settings(
+        MINIO_ENDPOINT="test-minio:9000",
+        MINIO_ACCESS_KEY="test",
+        MINIO_SECRET_KEY="test",
+        MINIO_BUCKET_NAME="test-bucket"
+    )
+
+    with patch('app.core.config.settings', test_settings):
+        # Test code here uses test_settings
+        result = upload_to_minio(b"test", "test.txt")
+        assert result is not None
+```
+
+#### Production Deployment
+
+**Docker Secrets (recommended for production):**
+
+```yaml
+# docker-compose.prod.yml
+services:
+  api:
+    environment:
+      DATABASE_URL: /run/secrets/database_url
+      CLERK_SECRET_KEY: /run/secrets/clerk_secret_key
+      STRIPE_SECRET_KEY: /run/secrets/stripe_secret_key
+      HETZNER_API_TOKEN: /run/secrets/hetzner_api_token
+    secrets:
+      - database_url
+      - clerk_secret_key
+      - stripe_secret_key
+      - hetzner_api_token
+
+secrets:
+  database_url:
+    external: true
+  clerk_secret_key:
+    external: true
+  stripe_secret_key:
+    external: true
+  hetzner_api_token:
+    external: true
+```
+
+**Environment Variables (alternative for VPS):**
+
+```bash
+# /etc/systemd/system/rgrid-api.service
+[Service]
+EnvironmentFile=/opt/rgrid/.env.production
+ExecStart=/usr/bin/docker-compose up api
+```
+
+#### Validation & Type Safety
+
+**Pydantic automatically validates:**
+
+```python
+# Invalid configuration will raise ValidationError on startup
+settings = Settings()  # Fails if DATABASE_URL not set
+
+# Type safety in IDE
+settings.DATABASE_URL  # Type: str
+settings.DEBUG  # Type: bool
+settings.WORKER_MAX_CONCURRENT_JOBS  # Type: int
+```
+
+**Startup validation:**
+
+```python
+# api/app/main.py
+from app.core.config import settings
+
+@app.on_event("startup")
+async def validate_configuration():
+    """Validate configuration on startup."""
+    required_secrets = [
+        ("DATABASE_URL", settings.DATABASE_URL),
+        ("CLERK_SECRET_KEY", settings.CLERK_SECRET_KEY),
+        ("HETZNER_API_TOKEN", settings.HETZNER_API_TOKEN)
+    ]
+
+    for name, value in required_secrets:
+        if not value or value.startswith("xxxxx"):
+            raise ValueError(f"Invalid configuration: {name} not set")
+
+    logger.info(f"Configuration validated for environment: {settings.ENVIRONMENT}")
+```
+
 ### Test-Driven Development Strategy
 
 **Requirement: 100% TDD for all production code**
@@ -2609,6 +3243,126 @@ async def test_create_execution_insufficient_credits():
     with pytest.raises(InsufficientCreditsError):
         await execution_service.create(mock_db, account, execution_data)
 ```
+
+**Ray Task Mocking:**
+
+```python
+# tests/unit/services/test_execution_service.py
+from unittest.mock import AsyncMock, patch, MagicMock
+import ray
+
+@pytest.mark.asyncio
+@patch('ray.get')
+@patch('ray.remote')
+async def test_submit_execution_to_ray(mock_ray_remote, mock_ray_get):
+    """Test execution submission to Ray cluster."""
+    # Arrange
+    mock_task_ref = MagicMock()
+    mock_task_ref.task_id.return_value.hex.return_value = "ray_task_123"
+    mock_ray_remote.return_value.remote.return_value = mock_task_ref
+    mock_ray_get.return_value = ExecutionResult(
+        status="completed",
+        exit_code=0,
+        output_keys=["output.json"]
+    )
+
+    execution = Execution(
+        id=uuid4(),
+        script_hash="abc123",
+        runtime="python:3.11"
+    )
+
+    # Act
+    result = await execution_service.submit_to_ray(execution)
+
+    # Assert
+    assert result.task_id == "ray_task_123"
+    mock_ray_remote.assert_called_once()
+    mock_ray_get.assert_called_once_with(mock_task_ref)
+
+
+@pytest.mark.asyncio
+@patch('ray.get')
+async def test_ray_task_failure_handling(mock_ray_get):
+    """Test Ray task failure is handled gracefully."""
+    # Arrange
+    mock_ray_get.side_effect = ray.exceptions.RayTaskError("Worker crashed")
+
+    execution = Execution(id=uuid4())
+
+    # Act & Assert
+    with pytest.raises(WorkerExecutionError) as exc_info:
+        await execution_service.wait_for_ray_task(execution)
+
+    assert "Worker crashed" in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+@patch('ray.remote')
+async def test_ray_task_resource_allocation(mock_ray_remote):
+    """Test Ray task submitted with correct resource requirements."""
+    # Arrange
+    mock_remote_func = MagicMock()
+    mock_ray_remote.return_value = mock_remote_func
+
+    execution = Execution(
+        id=uuid4(),
+        cpu_cores=2,
+        memory_gb=4
+    )
+
+    # Act
+    await execution_service.submit_to_ray(execution)
+
+    # Assert
+    mock_ray_remote.assert_called_once_with(
+        num_cpus=2,
+        memory=4 * 1024 * 1024 * 1024  # 4GB in bytes
+    )
+    mock_remote_func.remote.assert_called_once()
+```
+
+**Ray Integration Test (with Ray running):**
+
+```python
+# tests/integration/test_ray_execution.py
+import ray
+import pytest
+
+@pytest.fixture(scope="module")
+def ray_cluster():
+    """Start local Ray cluster for integration tests."""
+    ray.init(num_cpus=2, ignore_reinit_error=True)
+    yield
+    ray.shutdown()
+
+
+@pytest.mark.integration
+async def test_real_ray_execution(ray_cluster):
+    """Test actual execution on Ray cluster (integration test)."""
+
+    @ray.remote
+    def execute_script(script_content: str) -> dict:
+        """Ray task that executes Python script."""
+        exec_globals = {}
+        exec(script_content, exec_globals)
+        return {"status": "completed", "output": exec_globals.get("result")}
+
+    # Act
+    task_ref = execute_script.remote("result = 2 + 2")
+    result = ray.get(task_ref)
+
+    # Assert
+    assert result["status"] == "completed"
+    assert result["output"] == 4
+```
+
+**Mocking Strategy Guidelines for Agents:**
+
+1. **Unit Tests:** Always mock `ray.remote()` and `ray.get()` to avoid Ray cluster dependency
+2. **Integration Tests:** Use real Ray cluster (started in fixture) to test actual distributed execution
+3. **Mock Ray Exceptions:** Test error handling by mocking `RayTaskError`, `RayActorError`, `WorkerCrashedError`
+4. **Mock Resource Requirements:** Verify Ray tasks submitted with correct CPU/memory specs
 
 #### TDD Best Practices for AI Agents
 
