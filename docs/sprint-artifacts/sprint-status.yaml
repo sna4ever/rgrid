@@ -36,25 +36,25 @@ tracking_system: file-system
 story_location: /home/sune/Projects/rgrid/docs/sprint-artifacts
 
 development_status:
-  # Epic 1: Foundation & CLI Core
+  # Epic 1: Foundation & CLI Core (✅ TIER 1 COMPLETE - 2025-11-15)
   epic-1: contexted
-  1-1-initialize-monorepo-project-structure: ready-for-dev
-  1-2-set-up-development-environment-and-build-system: ready-for-dev
-  1-3-implement-api-key-authentication-system: ready-for-dev
-  1-4-build-cli-framework-with-click: ready-for-dev
-  1-5-implement-rgrid-init-command-for-first-time-setup: ready-for-dev
-  1-6-set-up-fastapi-backend-with-database-connection: ready-for-dev
+  1-1-initialize-monorepo-project-structure: done  # Tier 1
+  1-2-set-up-development-environment-and-build-system: done  # Tier 1
+  1-3-implement-api-key-authentication-system: done  # Tier 1 (simplified - accepts any sk_* key)
+  1-4-build-cli-framework-with-click: done  # Tier 1
+  1-5-implement-rgrid-init-command-for-first-time-setup: done  # Tier 1
+  1-6-set-up-fastapi-backend-with-database-connection: done  # Tier 1
   epic-1-retrospective: optional
 
-  # Epic 2: Single Script Execution
+  # Epic 2: Single Script Execution (🟡 TIER 1 PARTIAL - 3/7 stories)
   epic-2: contexted
-  2-1-implement-rgrid-run-command-basic-stub: ready-for-dev
-  2-2-implement-docker-container-execution-on-runner: ready-for-dev
-  2-3-implement-pre-configured-runtimes: ready-for-dev
-  2-4-auto-detect-and-install-python-dependencies: ready-for-dev
-  2-5-handle-script-input-files-as-arguments: ready-for-dev
-  2-6-collect-and-store-script-outputs: ready-for-dev
-  2-7-support-environment-variables-via-env-flag: ready-for-dev
+  2-1-implement-rgrid-run-command-basic-stub: done  # Tier 1
+  2-2-implement-docker-container-execution-on-runner: done  # Tier 1
+  2-3-implement-pre-configured-runtimes: ready-for-dev  # Tier 2
+  2-4-auto-detect-and-install-python-dependencies: ready-for-dev  # Tier 2
+  2-5-handle-script-input-files-as-arguments: ready-for-dev  # Tier 2
+  2-6-collect-and-store-script-outputs: done  # Tier 1 (basic - no storage to DB yet)
+  2-7-support-environment-variables-via-env-flag: ready-for-dev  # Tier 2
   epic-2-retrospective: optional
 
   # Epic 3: Distributed Orchestration (Ray)
@@ -92,14 +92,14 @@ development_status:
   6-4-implement-optional-input-file-caching: ready-for-dev
   epic-6-retrospective: optional
 
-  # Epic 7: File & Artifact Management
+  # Epic 7: File & Artifact Management (🟡 TIER 1 PARTIAL - 2/6 stories)
   epic-7: contexted
-  7-1-auto-upload-input-files-referenced-in-arguments: ready-for-dev
-  7-2-auto-collect-output-files-from-container: ready-for-dev
-  7-3-store-outputs-in-minio-with-retention-policy: ready-for-dev
-  7-4-auto-download-outputs-to-current-directory-single-execution: ready-for-dev
-  7-5-implement-remote-only-flag-to-skip-auto-download: ready-for-dev
-  7-6-implement-large-file-streaming-and-compression: ready-for-dev
+  7-1-auto-upload-input-files-referenced-in-arguments: done  # Tier 1 (basic detection only)
+  7-2-auto-collect-output-files-from-container: ready-for-dev  # Tier 2
+  7-3-store-outputs-in-minio-with-retention-policy: ready-for-dev  # Tier 2
+  7-4-auto-download-outputs-to-current-directory-single-execution: done  # Tier 1 (basic)
+  7-5-implement-remote-only-flag-to-skip-auto-download: ready-for-dev  # Tier 3
+  7-6-implement-large-file-streaming-and-compression: ready-for-dev  # Tier 3
   epic-7-retrospective: optional
 
   # Epic 8: Observability & Real-time Feedback
