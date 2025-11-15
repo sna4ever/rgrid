@@ -6,6 +6,7 @@ from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
 from rgrid.api_client import get_client
+from rgrid_common.runtimes import resolve_runtime
 
 console = Console()
 
@@ -13,9 +14,9 @@ console = Console()
 @click.command()
 @click.argument("script", type=click.Path(exists=True))
 @click.argument("args", nargs=-1)
-@click.option("--runtime", default="python:3.11", help="Runtime environment")
+@click.option("--runtime", default=None, help="Runtime environment (default: python3.11)")
 @click.option("--env", "-e", multiple=True, help="Environment variable (KEY=VALUE)")
-def run(script: str, args: tuple[str, ...], runtime: str, env: tuple[str, ...]) -> None:
+def run(script: str, args: tuple[str, ...], runtime: str | None, env: tuple[str, ...]) -> None:
     """
     Run a Python script remotely.
 
@@ -56,6 +57,9 @@ def run(script: str, args: tuple[str, ...], runtime: str, env: tuple[str, ...]) 
         key, value = env_var.split("=", 1)
         env_vars[key] = value
 
+    # Resolve runtime to Docker image
+    resolved_runtime = resolve_runtime(runtime)
+
     # Create execution
     try:
         with Progress(
@@ -68,7 +72,7 @@ def run(script: str, args: tuple[str, ...], runtime: str, env: tuple[str, ...]) 
             client = get_client()
             result = client.create_execution(
                 script_content=script_content,
-                runtime=runtime,
+                runtime=resolved_runtime,
                 args=list(args),
                 env_vars=env_vars,
             )

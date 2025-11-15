@@ -46,12 +46,12 @@ development_status:
   1-6-set-up-fastapi-backend-with-database-connection: done  # Tier 1
   epic-1-retrospective: optional
 
-  # Epic 2: Single Script Execution (🟡 TIER 2 PARTIAL - 4/7 stories)
+  # Epic 2: Single Script Execution (🟡 TIER 2/3 PARTIAL - 5/7 stories)
   epic-2: contexted
   2-1-implement-rgrid-run-command-basic-stub: done  # Tier 1
   2-2-implement-docker-container-execution-on-runner: done  # Tier 1
-  2-3-implement-pre-configured-runtimes: ready-for-dev  # Tier 3
-  2-4-auto-detect-and-install-python-dependencies: ready-for-dev  # Tier 3
+  2-3-implement-pre-configured-runtimes: done  # Tier 3 - 2025-11-15
+  2-4-auto-detect-and-install-python-dependencies: ready-for-dev  # Tier 3 (deferred)
   2-5-handle-script-input-files-as-arguments: ready-for-dev  # Tier 3
   2-6-collect-and-store-script-outputs: done  # Tier 2 - 2025-11-15 (stdout/stderr to DB)
   2-7-support-environment-variables-via-env-flag: done  # Tier 2 - 2025-11-15 (via -e flag)
@@ -126,9 +126,15 @@ development_status:
   10-1-build-marketing-website-landing-page: ready-for-dev
   10-2-build-console-dashboard-with-execution-history: ready-for-dev
   10-3-implement-download-outputs-via-console: ready-for-dev
-  10-4-implement-structured-error-handling-with-clear-messages: ready-for-dev
+  10-4-implement-structured-error-handling-with-clear-messages: ready-for-dev  # Tier 3 (deferred)
   10-5-implement-network-failure-graceful-handling: ready-for-dev
   10-6-implement-manual-retry-command: ready-for-dev
   10-7-implement-auto-retry-for-transient-failures: ready-for-dev
   10-8-implement-execution-metadata-tagging: ready-for-dev
   epic-10-retrospective: optional
+
+  # Tier 3: Production Reliability Stories (✅ 3/3 core stories - 2025-11-15)
+  NEW-3-setup-alembic-database-migrations: done  # Tier 3 - 2025-11-15
+  NEW-5-add-container-resource-limits: done  # Tier 3 - 2025-11-15
+  NEW-6-implement-job-timeout-mechanism: done  # Tier 3 - 2025-11-15
+  NEW-7-implement-dead-worker-detection: ready-for-dev  # Tier 3 (deferred - complex infrastructure)
