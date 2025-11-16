@@ -31,7 +31,7 @@ class TestResourceLimitsIntegration:
         # We'll use a simple script that completes quickly
         script = "print('Testing defaults')"
 
-        exit_code, stdout, stderr = executor.execute_script(
+        exit_code, stdout, stderr, _ = executor.execute_script(
             script_content=script,
             timeout_seconds=300,
             mem_limit_mb=512,
@@ -52,7 +52,7 @@ print(f"Allocated {len(data) / 1024 / 1024:.1f}MB")
 print("SUCCESS")
 """
 
-        exit_code, stdout, stderr = executor.execute_script(
+        exit_code, stdout, stderr, _ = executor.execute_script(
             script_content=script,
             mem_limit_mb=512,
         )
@@ -67,7 +67,7 @@ print("SUCCESS")
 
         # Test with different memory limits
         for mem_limit in [256, 512, 1024]:
-            exit_code, stdout, stderr = executor.execute_script(
+            exit_code, stdout, stderr, _ = executor.execute_script(
                 script_content=script,
                 mem_limit_mb=mem_limit,
             )
@@ -79,7 +79,7 @@ print("SUCCESS")
 
         # Test with different CPU limits
         for cpu_count in [0.5, 1.0, 2.0]:
-            exit_code, stdout, stderr = executor.execute_script(
+            exit_code, stdout, stderr, _ = executor.execute_script(
                 script_content=script,
                 cpu_count=cpu_count,
             )
@@ -108,7 +108,7 @@ for i in range(10):
 print("Script completed")
 """
 
-        exit_code, stdout, stderr = executor.execute_script(
+        exit_code, stdout, stderr, _ = executor.execute_script(
             script_content=script,
             mem_limit_mb=512,
             timeout_seconds=60,  # Don't wait too long
@@ -143,7 +143,7 @@ print("Completed in 1 second")
 """
 
         start_time = time.time()
-        exit_code, stdout, stderr = executor.execute_script(
+        exit_code, stdout, stderr, _ = executor.execute_script(
             script_content=script,
             timeout_seconds=10,
         )
@@ -165,7 +165,7 @@ print("This should never print")
 """
 
         start_time = time.time()
-        exit_code, stdout, stderr = executor.execute_script(
+        exit_code, stdout, stderr, _ = executor.execute_script(
             script_content=script,
             timeout_seconds=3,  # Kill after 3 seconds
         )
@@ -190,7 +190,7 @@ print("Completed")
 """
 
         # With 5 second timeout, should succeed
-        exit_code, stdout, stderr = executor.execute_script(
+        exit_code, stdout, stderr, _ = executor.execute_script(
             script_content=script,
             timeout_seconds=5,
         )
@@ -198,7 +198,7 @@ print("Completed")
         assert "Completed" in stdout
 
         # With 1 second timeout, should fail
-        exit_code, stdout, stderr = executor.execute_script(
+        exit_code, stdout, stderr, _ = executor.execute_script(
             script_content=script,
             timeout_seconds=1,
         )
@@ -209,7 +209,7 @@ print("Completed")
         """Timeout error should include clear message with duration."""
         script = "import time; time.sleep(60)"
 
-        exit_code, stdout, stderr = executor.execute_script(
+        exit_code, stdout, stderr, _ = executor.execute_script(
             script_content=script,
             timeout_seconds=2,
         )
@@ -225,7 +225,7 @@ print("Completed")
         script = "print('Testing default timeout')"
 
         # Call without timeout parameter - should use default
-        exit_code, stdout, stderr = executor.execute_script(
+        exit_code, stdout, stderr, _ = executor.execute_script(
             script_content=script,
             # timeout_seconds not specified - uses default
         )
@@ -252,7 +252,7 @@ time.sleep(1)
 print("Completed successfully")
 """
 
-        exit_code, stdout, stderr = executor.execute_script(
+        exit_code, stdout, stderr, _ = executor.execute_script(
             script_content=script,
             timeout_seconds=10,
             mem_limit_mb=256,
@@ -266,7 +266,7 @@ print("Completed successfully")
         """Timeout should work even when memory/CPU limits are also set."""
         script = "import time; time.sleep(60)"
 
-        exit_code, stdout, stderr = executor.execute_script(
+        exit_code, stdout, stderr, _ = executor.execute_script(
             script_content=script,
             timeout_seconds=2,
             mem_limit_mb=512,
@@ -299,18 +299,19 @@ class TestExecutorResourceLimitAPI:
         assert params['cpu_count'].default == 1.0
 
     def test_executor_returns_correct_tuple_format(self):
-        """Executor should return (exit_code, stdout, stderr) tuple."""
+        """Executor should return (exit_code, stdout, stderr, uploaded_outputs) tuple."""
         executor = DockerExecutor()
 
         result = executor.execute_script("print('test')")
 
         assert isinstance(result, tuple)
-        assert len(result) == 3
+        assert len(result) == 4
 
-        exit_code, stdout, stderr = result
+        exit_code, stdout, stderr, uploaded_outputs = result
         assert isinstance(exit_code, int)
         assert isinstance(stdout, str)
         assert isinstance(stderr, str)
+        assert isinstance(uploaded_outputs, list)
 
         executor.close()
 

@@ -88,7 +88,7 @@ class TestWalkingSkeleton:
         executor = DockerExecutor()
 
         # Execute simple script
-        exit_code, stdout, stderr = executor.execute_script(
+        exit_code, stdout, stderr, _ = executor.execute_script(
             script_content="print('Hello from Docker')\n",
             runtime="python:3.11-slim",
             args=[],

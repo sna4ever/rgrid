@@ -7,6 +7,7 @@ from pathlib import Path
 import tempfile
 
 from runner.file_handler import download_input_files, map_args_to_container_paths
+from runner.output_collector import collect_output_files, upload_outputs_to_minio
 
 
 class DockerExecutor:
@@ -26,7 +27,8 @@ class DockerExecutor:
         mem_limit_mb: int = 512,
         cpu_count: float = 1.0,
         download_urls: Optional[Dict[str, str]] = None,
-    ) -> tuple[int, str, str]:
+        exec_id: Optional[str] = None,  # Story 7-2: For output collection
+    ) -> tuple[int, str, str, list]:
         """
         Execute script in Docker container with resource limits.
 
@@ -39,9 +41,10 @@ class DockerExecutor:
             mem_limit_mb: Memory limit in MB (default: 512MB)
             cpu_count: CPU cores to allocate (default: 1.0)
             download_urls: Presigned URLs for input files (Tier 4 - Story 2-5)
+            exec_id: Execution ID for output collection (Story 7-2)
 
         Returns:
-            Tuple of (exit_code, stdout, stderr)
+            Tuple of (exit_code, stdout, stderr, uploaded_outputs)
         """
         args = args or []
         env_vars = env_vars or {}
@@ -54,13 +57,12 @@ class DockerExecutor:
             script_path.write_text(script_content)
 
             # Download input files if any (Tier 4 - Story 2-5)
+            # Story 7-2: Always create /work directory for outputs
             volumes = {str(tmpdir_path): {"bind": "/workspace", "mode": "ro"}}
+            work_dir = tmpdir_path / "work"
+            work_dir.mkdir()
 
             if download_urls:
-                # Create /work directory for input files
-                work_dir = tmpdir_path / "work"
-                work_dir.mkdir()
-
                 # Download files to /work
                 downloaded_files = download_input_files(download_urls, work_dir)
 
@@ -69,11 +71,11 @@ class DockerExecutor:
 
                 # Map arguments to container paths
                 container_args = map_args_to_container_paths(args, input_filenames)
-
-                # Mount /work directory (read-write for input files)
-                volumes[str(work_dir)] = {"bind": "/work", "mode": "rw"}
             else:
                 container_args = args
+
+            # Mount /work directory (read-write for both inputs and outputs)
+            volumes[str(work_dir)] = {"bind": "/work", "mode": "rw"}
 
             # Prepare command
             cmd = ["python", "/workspace/script.py"] + container_args
@@ -106,21 +108,31 @@ class DockerExecutor:
                     # Timeout or other error - kill container
                     container.kill()
                     container.remove()
-                    return -1, "", f"Execution timeout ({timeout_seconds}s) or error: {str(timeout_error)}"
+                    return -1, "", f"Execution timeout ({timeout_seconds}s) or error: {str(timeout_error)}", []
 
                 # Get logs
                 logs = container.logs(stdout=True, stderr=True)
                 output = logs.decode("utf-8") if isinstance(logs, bytes) else str(logs)
 
-                # Clean up
+                # Clean up container
                 container.remove()
 
-                # For walking skeleton, return combined output
-                # In full implementation, separate stdout/stderr
-                return exit_code, output, ""
+                # Story 7-2: Collect and upload outputs from /work directory
+                uploaded_outputs = []
+                if exec_id:  # Collect outputs if exec_id provided
+                    # work_dir already exists (created above)
+                    # Collect all output files
+                    outputs = collect_output_files(work_dir)
+
+                    # Upload to MinIO
+                    if outputs:
+                        uploaded_outputs = upload_outputs_to_minio(outputs, exec_id)
+
+                # Return exit code, stdout, stderr, and uploaded outputs
+                return exit_code, output, "", uploaded_outputs
 
             except Exception as e:
-                return -1, "", str(e)
+                return -1, "", str(e), []
 
     def close(self) -> None:
         """Close Docker client."""
