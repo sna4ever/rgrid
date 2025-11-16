@@ -65,6 +65,7 @@ async def create_execution(
         args=execution.args,
         env_vars=execution.env_vars,
         input_files=execution.input_files,  # Tier 4 - Story 2-5
+        batch_id=execution.batch_id,  # Tier 5 - Story 5-3
         status=ExecutionStatus.QUEUED.value,
         created_at=datetime.utcnow(),
     )
@@ -141,3 +142,37 @@ async def get_execution(
         completed_at=db_execution.completed_at,
         cost_micros=db_execution.cost_micros,
     )
+
+
+@router.get("/batches/{batch_id}/status")
+async def get_batch_status(
+    batch_id: str,
+    db: AsyncSession = Depends(get_db),
+    api_key: str = Depends(verify_api_key),
+) -> Dict:
+    """
+    Get execution statuses for all jobs in a batch.
+
+    Args:
+        batch_id: Batch ID to query
+        db: Database session
+        api_key: Authenticated API key
+
+    Returns:
+        Dictionary with list of execution statuses
+    """
+    from sqlalchemy import select
+
+    # Query all executions with this batch_id
+    result = await db.execute(
+        select(Execution).where(Execution.batch_id == batch_id)
+    )
+    executions = result.scalars().all()
+
+    if not executions:
+        raise HTTPException(status_code=404, detail="Batch not found")
+
+    # Extract statuses
+    statuses = [exec.status for exec in executions]
+
+    return {"statuses": statuses}

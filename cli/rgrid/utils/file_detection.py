@@ -1,7 +1,8 @@
 """File argument detection for CLI."""
 
 import os
-from typing import Tuple, List
+from pathlib import Path
+from typing import Tuple, List, Optional
 
 
 def detect_file_arguments(args: List[str]) -> Tuple[List[str], List[str]]:
@@ -33,3 +34,25 @@ def detect_file_arguments(args: List[str]) -> Tuple[List[str], List[str]]:
             regular_args.append(arg)
 
     return (file_args, regular_args)
+
+
+def detect_requirements_file(script_path: str) -> Optional[str]:
+    """
+    Detect requirements.txt file in the same directory as the script.
+
+    Args:
+        script_path: Path to the script file
+
+    Returns:
+        Content of requirements.txt if found, None otherwise
+    """
+    script_dir = Path(script_path).parent
+    requirements_path = script_dir / "requirements.txt"
+
+    if requirements_path.exists() and requirements_path.is_file():
+        try:
+            return requirements_path.read_text()
+        except Exception:
+            return None
+
+    return None

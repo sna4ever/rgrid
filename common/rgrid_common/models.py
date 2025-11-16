@@ -34,6 +34,10 @@ class ExecutionCreate(ExecutionBase):
         default_factory=list,
         description="List of input file names to be uploaded to MinIO"
     )
+    batch_id: Optional[str] = Field(
+        None,
+        description="Optional batch ID for grouping multiple executions (Tier 5 - Story 5-3)"
+    )
 
 
 class ExecutionResponse(ExecutionBase):

@@ -40,3 +40,6 @@ class Execution(Base):
     # Ray/worker tracking (Tier 4 - Story 3-3)
     ray_task_id: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
     worker_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+
+    # Batch tracking (Tier 5 - Story 5-3)
+    batch_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True, index=True)

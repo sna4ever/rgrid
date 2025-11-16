@@ -52,7 +52,7 @@ development_status:
   2-2-implement-docker-container-execution-on-runner: done  # Tier 1
   2-3-implement-pre-configured-runtimes: done  # Tier 3 - 2025-11-15
   2-4-auto-detect-and-install-python-dependencies: ready-for-dev  # Tier 3 (deferred)
-  2-5-handle-script-input-files-as-arguments: ready-for-dev  # Tier 3
+  2-5-handle-script-input-files-as-arguments: done  # Tier 5 - Dev 1 - COMPLETED 2025-11-16
   2-6-collect-and-store-script-outputs: done  # Tier 2 - 2025-11-15 (stdout/stderr to DB)
   2-7-support-environment-variables-via-env-flag: done  # Tier 2 - 2025-11-15 (via -e flag)
   epic-2-retrospective: optional
@@ -78,7 +78,7 @@ development_status:
   epic-5: contexted
   5-1-implement-batch-flag-with-glob-pattern-expansion: ready-for-dev
   5-2-implement-parallel-flag-for-concurrency-control: ready-for-dev
-  5-3-track-batch-execution-progress: ready-for-dev
+  5-3-track-batch-execution-progress: done  # Tier 5 - Dev 2 - COMPLETED 2025-11-16
   5-4-organize-batch-outputs-by-input-filename: ready-for-dev
   5-5-handle-batch-failures-gracefully: ready-for-dev
   5-6-implement-retry-for-failed-batch-executions: ready-for-dev
@@ -87,7 +87,7 @@ development_status:
   # Epic 6: Caching & Optimization
   epic-6: contexted
   6-1-implement-script-content-hashing-and-cache-lookup: ready-for-dev
-  6-2-implement-dependency-layer-caching: ready-for-dev
+  6-2-implement-dependency-layer-caching: done  # Tier 5 - Dev 3 - COMPLETED 2025-11-16
   6-3-implement-automatic-cache-invalidation: ready-for-dev
   6-4-implement-optional-input-file-caching: ready-for-dev
   epic-6-retrospective: optional
