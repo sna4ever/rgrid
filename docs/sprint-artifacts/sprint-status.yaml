@@ -88,7 +88,7 @@ development_status:
   epic-6: contexted
   6-1-implement-script-content-hashing-and-cache-lookup: ready-for-dev
   6-2-implement-dependency-layer-caching: done  # Tier 5 - Dev 3 - COMPLETED 2025-11-16
-  6-3-implement-automatic-cache-invalidation: ready-for-dev
+  6-3-implement-automatic-cache-invalidation: done  # Tier 5 - Dev 3 - COMPLETED 2025-11-16
   6-4-implement-optional-input-file-caching: ready-for-dev
   epic-6-retrospective: optional
 

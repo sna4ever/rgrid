@@ -21,7 +21,8 @@ console = Console()
 @click.option("--runtime", default=None, help="Runtime environment (default: python3.11)")
 @click.option("--env", "-e", multiple=True, help="Environment variable (KEY=VALUE)")
 @click.option("--batch", type=click.Path(exists=True), multiple=True, help="Run script with multiple input files (batch mode)")
-def run(script: str, args: tuple[str, ...], runtime: str | None, env: tuple[str, ...], batch: tuple[str, ...]) -> None:
+@click.option("--remote-only", is_flag=True, help="Skip auto-download of outputs")
+def run(script: str, args: tuple[str, ...], runtime: str | None, env: tuple[str, ...], batch: tuple[str, ...], remote_only: bool) -> None:
     """
     Run a Python script remotely.
 
@@ -181,7 +182,14 @@ def run(script: str, args: tuple[str, ...], runtime: str | None, env: tuple[str,
             console.print(f"[dim]Status:[/dim] {status}")
             if file_args:
                 console.print(f"[dim]Uploaded files:[/dim] {', '.join(input_files)}")
-            console.print(f"\nCheck status: [cyan]rgrid status {execution_id}[/cyan]")
+
+            # Handle output download based on --remote-only flag (Story 7-5)
+            if remote_only:
+                console.print(f"\n[cyan]ℹ[/cyan] Outputs stored remotely. Download with: [cyan]rgrid download {execution_id}[/cyan]")
+            else:
+                # Auto-download outputs (default behavior)
+                # TODO: Implement auto-download when execution completes
+                console.print(f"\nCheck status: [cyan]rgrid status {execution_id}[/cyan]")
 
         except Exception as e:
             console.print(f"\n[red]Error:[/red] {e}")
