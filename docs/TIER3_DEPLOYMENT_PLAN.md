@@ -1,300 +1,858 @@
-# Tier 3 Deployment & Testing Plan
+# Tier 3 Deployment & Testing Plan (Beginner-Friendly)
 
 **Date**: 2025-11-16
 **Status**: READY FOR DEPLOYMENT
-**Goal**: Deploy Tier 3 to staging environment and verify production-readiness
+**Goal**: Deploy both staging AND production environments to a single VPS to save costs
 
 ---
 
-## Overview
+## 🎯 Overview for Beginners
 
-Tier 3 is "Production-Ready" - which means we need to actually test it in a production-like environment. This plan outlines the infrastructure setup, deployment process, and comprehensive testing to validate all Tier 3 features work in a real VPS environment.
+**What are we doing?**
+We're setting up a real server (VPS = Virtual Private Server) on the internet where RGrid will run. This server will host TWO separate environments:
+- **Staging** - For testing new features safely
+- **Production** - For real users (when you're ready to launch)
+
+**Why on the same VPS?**
+Running both on one server saves money (~$6/month instead of $12/month). We'll isolate them using different ports and databases so they don't interfere with each other.
+
+**What is Docker?**
+Docker is like a shipping container for software. It packages your code with everything it needs to run (Python, libraries, etc.) so it works identically everywhere. Each "container" is isolated - if one crashes, it doesn't affect others.
+
+**What is a database migration?**
+It's like a version control system for your database schema. When you add a new column or table, you create a "migration" file that records the change. This lets you upgrade (or downgrade) your database structure safely.
 
 ---
 
-## Infrastructure Requirements
+## 💰 Cost Breakdown
 
-### Staging Environment Architecture
+**Single VPS Running Both Environments**:
+- Hetzner CX21: €5.83/month (~$6.50 USD)
+- 2 vCPU, 4GB RAM, 40GB SSD
+- Sufficient for staging + production initially
+- Can upgrade later when you have real traffic
+
+**Domain**: rgrid.dev (already registered with NameSilo)
+- Staging: `https://staging.rgrid.dev`
+- Production: `https://api.rgrid.dev`
+
+**Total monthly cost**: ~$6.50 USD
+
+---
+
+## 🏗️ Architecture: Single VPS, Dual Environment
 
 ```
-┌─────────────────────────────────────────────────────┐
-│ VPS (Hetzner CX21 or similar)                       │
-│ - 2 vCPU, 4GB RAM, 40GB SSD                        │
-│ - Ubuntu 22.04 LTS                                  │
-│ - Public IP for SSH and API access                 │
-│                                                      │
-│  ┌──────────────┐  ┌──────────────┐  ┌───────────┐ │
-│  │ FastAPI      │  │ PostgreSQL   │  │ MinIO     │ │
-│  │ (port 8000)  │  │ (port 5432)  │  │ (port 9000│ │
-│  └──────────────┘  └──────────────┘  └───────────┘ │
-│                                                      │
-│  ┌──────────────┐                                   │
-│  │ Runner       │  (runs jobs locally for Tier 3)  │
-│  │ (Docker)     │                                   │
-│  └──────────────┘                                   │
-└─────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│ Hetzner VPS (CX21) - Ubuntu 22.04                          │
+│ Public IP: XXX.XXX.XXX.XXX                                 │
+│                                                             │
+│  STAGING ENVIRONMENT (Port 8001)                           │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │ Docker Network: rgrid-staging                        │  │
+│  │  ┌─────────┐  ┌──────────┐  ┌─────────┐            │  │
+│  │  │ API     │  │ Postgres │  │ MinIO   │            │  │
+│  │  │ :8001   │  │ :5433    │  │ :9001   │            │  │
+│  │  └─────────┘  └──────────┘  └─────────┘            │  │
+│  │  ┌─────────┐                                        │  │
+│  │  │ Runner  │  (executes test jobs)                  │  │
+│  │  └─────────┘                                        │  │
+│  └──────────────────────────────────────────────────────┘  │
+│                                                             │
+│  PRODUCTION ENVIRONMENT (Port 8000)                        │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │ Docker Network: rgrid-production                     │  │
+│  │  ┌─────────┐  ┌──────────┐  ┌─────────┐            │  │
+│  │  │ API     │  │ Postgres │  │ MinIO   │            │  │
+│  │  │ :8000   │  │ :5432    │  │ :9000   │            │  │
+│  │  └─────────┘  └──────────┘  └─────────┘            │  │
+│  │  ┌─────────┐                                        │  │
+│  │  │ Runner  │  (executes real jobs)                  │  │
+│  │  └─────────┘                                        │  │
+│  └──────────────────────────────────────────────────────┘  │
+│                                                             │
+│  Firewall (UFW): SSH(22), HTTP(80), HTTPS(443)            │
+│  NGINX Reverse Proxy: staging.rgrid.dev → :8001           │
+│                       api.rgrid.dev → :8000                │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-**Why this setup?**
-- Tier 3 doesn't need distributed execution yet (that's Tier 4)
-- Single VPS tests all core features: API, database, storage, execution
-- Can run real workloads to validate production-readiness
+**Why this works:**
+- Different ports prevent conflicts (8000 vs 8001)
+- Different databases keep data separate (5432 vs 5433)
+- Docker networks isolate containers
+- NGINX routes traffic based on domain name
+- Firewall protects both environments
 
 ---
 
-## Deployment Plan
+## 📋 Part 1: What YOU Must Do (Manual Setup - 60 minutes)
 
-### Phase 1: Human Setup (Manual - 30 minutes)
+### Step 1: Provision the VPS (10 minutes)
 
-**What YOU need to do:**
+**[FROM: Your computer's web browser]**
 
-1. **Provision VPS**
+1. **Go to Hetzner Cloud**
+   - Visit: https://console.hetzner.cloud
+   - Log in (or create account if new)
+
+2. **Create a new project**
+   - Click "New Project"
+   - Name: `rgrid`
+   - Click "Create"
+
+3. **Create a server**
+   - Click "Add Server"
+   - **Location**: Nuremberg, Germany (or closest to you)
+   - **Image**: Ubuntu 22.04
+   - **Type**: CX21 (2 vCPU, 4GB RAM) - €5.83/month
+   - **Networking**: Leave defaults (IPv4 + IPv6)
+   - **SSH Keys**: Click "Add SSH Key"
+
+4. **Add your SSH key** (if you don't have one yet):
+
+   **[FROM: Your local machine terminal]**
    ```bash
-   # Option A: Hetzner Cloud (recommended)
-   - Go to https://console.hetzner.cloud
-   - Create new project: "rgrid-staging"
-   - Create server: CX21 (€5.83/mo), Ubuntu 22.04, Nuremberg datacenter
-   - Add SSH key (use your existing key or generate new one)
-   - Note the public IP address
+   # Check if you have an SSH key
+   ls ~/.ssh/id_ed25519.pub
 
-   # Option B: Any VPS provider (DigitalOcean, Linode, AWS, etc.)
-   - 2 vCPU, 4GB RAM minimum
-   - Ubuntu 22.04 LTS
-   - Public IP address
-   - SSH access
+   # If not found, create one:
+   ssh-keygen -t ed25519 -C "your-email@example.com"
+   # Press Enter 3 times (default location, no passphrase for automation)
+
+   # Display your public key
+   cat ~/.ssh/id_ed25519.pub
+   # Copy this entire output
    ```
 
-2. **Configure DNS (optional but recommended)**
-   ```bash
-   # If you have a domain, create A record:
-   staging.rgrid.yourdomain.com → <VPS_IP>
+   **[BACK TO: Hetzner web console]**
+   - Paste your public key
+   - Name: "Your Computer"
+   - Click "Add SSH Key"
 
-   # Without domain, just use IP address
+5. **Finalize server creation**
+   - **Name**: `rgrid-main`
+   - Click "Create & Buy Now"
+   - Wait 30-60 seconds for server to start
+   - **Write down the IP address** (e.g., 162.55.123.45)
+
+**What just happened?**
+You rented a computer in a datacenter. It's now running Ubuntu Linux and waiting for you to connect via SSH (Secure Shell - encrypted remote access).
+
+---
+
+### Step 2: Configure DNS (15 minutes)
+
+**[FROM: NameSilo.com dashboard]**
+
+1. **Log in to NameSilo**
+   - Visit: https://www.namesilo.com
+   - Log in to your account
+
+2. **Go to DNS settings**
+   - Click on your domain: `rgrid.dev`
+   - Click "Manage DNS" or "DNS Records"
+
+3. **Add DNS records** (one by one)
+
+   **For Staging:**
+   - **Type**: A
+   - **Host**: staging
+   - **Value**: <YOUR_VPS_IP> (e.g., 162.55.123.45)
+   - **TTL**: 3600
+   - Click "Submit"
+
+   **For Production:**
+   - **Type**: A
+   - **Host**: api
+   - **Value**: <YOUR_VPS_IP> (same IP as staging)
+   - **TTL**: 3600
+   - Click "Submit"
+
+   **For Root domain (optional - for website later):**
+   - **Type**: A
+   - **Host**: @
+   - **Value**: <YOUR_VPS_IP>
+   - **TTL**: 3600
+   - Click "Submit"
+
+4. **Verify DNS propagation** (wait 5-10 minutes)
+
+   **[FROM: Your local machine terminal]**
+   ```bash
+   # Test if DNS is working (might take 5-10 minutes)
+   dig staging.rgrid.dev
+   # Should show your VPS IP in the ANSWER section
+
+   dig api.rgrid.dev
+   # Should also show your VPS IP
    ```
 
-3. **Initial SSH Setup**
-   ```bash
-   # Test SSH connection
-   ssh root@<VPS_IP>
+**What just happened?**
+You told the internet: "When someone types staging.rgrid.dev, send them to this IP address." DNS is like a phone book for the internet.
 
-   # Create deploy user
+---
+
+### Step 3: Initial SSH Setup & Security Hardening (20 minutes)
+
+**[FROM: Your local machine terminal]**
+
+1. **First connection to VPS**
+   ```bash
+   # Connect as root (initial setup only)
+   ssh root@<YOUR_VPS_IP>
+   # Example: ssh root@162.55.123.45
+
+   # You should see a prompt like: root@rgrid-main:~#
+   ```
+
+   **What is SSH?** Secure Shell - it's like remote desktop for Linux, but text-based. You type commands on your computer, they execute on the VPS.
+
+**[FROM: Inside the VPS - the rest of Step 3]**
+
+2. **Update the system**
+   ```bash
+   # Update package lists (like "checking for updates")
+   apt update
+
+   # Install updates (like "install updates")
+   apt upgrade -y
+   # This might take 2-3 minutes
+   ```
+
+3. **Create a non-root user** (security best practice)
+   ```bash
+   # Create user called 'deploy' (you could use your name instead)
    adduser deploy
+   # Enter a password when prompted (SAVE THIS PASSWORD!)
+   # Press Enter for all other questions (accept defaults)
+
+   # Give deploy user sudo access (ability to run admin commands)
    usermod -aG sudo deploy
+   ```
+
+   **Why not use root?** Root user has unlimited power. If an attacker gets root access, they own your server. Using a regular user with sudo is safer.
+
+4. **Set up SSH key for deploy user**
+   ```bash
+   # Copy your SSH key to deploy user
    mkdir -p /home/deploy/.ssh
    cp ~/.ssh/authorized_keys /home/deploy/.ssh/
    chown -R deploy:deploy /home/deploy/.ssh
+   chmod 700 /home/deploy/.ssh
+   chmod 600 /home/deploy/.ssh/authorized_keys
+   ```
 
-   # Exit and reconnect as deploy user
+5. **Harden SSH security**
+   ```bash
+   # Edit SSH configuration
+   nano /etc/ssh/sshd_config
+
+   # Find and change these lines (use Ctrl+W to search):
+   # Change: PermitRootLogin yes
+   # To:     PermitRootLogin no
+
+   # Change: PasswordAuthentication yes
+   # To:     PasswordAuthentication no
+
+   # Save: Ctrl+O, Enter, Ctrl+X
+
+   # Restart SSH service
+   systemctl restart sshd
+   ```
+
+   **What did we do?** Disabled root login and password login. Now only your SSH key can access the server. Much more secure!
+
+6. **Install and configure firewall**
+   ```bash
+   # Install UFW (Uncomplicated Firewall - it's actually simple!)
+   apt install ufw -y
+
+   # Allow SSH (port 22) - IMPORTANT: Do this first or you'll lock yourself out!
+   ufw allow 22/tcp
+
+   # Allow HTTP (port 80) for web traffic
+   ufw allow 80/tcp
+
+   # Allow HTTPS (port 443) for secure web traffic
+   ufw allow 443/tcp
+
+   # Enable firewall
+   ufw --force enable
+
+   # Check status
+   ufw status verbose
+   # You should see: Status: active
+   ```
+
+   **What is a firewall?** Think of it as a security guard. It blocks all incoming traffic except what you explicitly allow (SSH, HTTP, HTTPS).
+
+7. **Install fail2ban** (brute-force protection)
+   ```bash
+   # Install fail2ban
+   apt install fail2ban -y
+
+   # Start it
+   systemctl enable fail2ban
+   systemctl start fail2ban
+   ```
+
+   **What is fail2ban?** It watches for repeated failed login attempts and temporarily bans the attacker's IP. Stops brute-force attacks.
+
+8. **Set up automatic security updates**
+   ```bash
+   # Install unattended-upgrades
+   apt install unattended-upgrades -y
+
+   # Enable it
+   dpkg-reconfigure -plow unattended-upgrades
+   # Select "Yes" when prompted
+   ```
+
+   **Why?** Security patches install automatically. One less thing to worry about.
+
+9. **Exit and reconnect as deploy user**
+   ```bash
+   # Exit from root
    exit
-   ssh deploy@<VPS_IP>
+
+   # You're back on your local machine now
    ```
 
-4. **Create Environment File**
-   ```bash
-   # On your LOCAL machine, create staging.env
-   cat > staging.env <<EOF
-   # Database
-   DATABASE_URL=postgresql://rgrid:CHANGEME_PASSWORD@localhost:5432/rgrid
+**[FROM: Your local machine terminal]**
 
-   # MinIO
-   MINIO_ENDPOINT=localhost:9000
-   MINIO_ACCESS_KEY=CHANGEME_ACCESS_KEY
-   MINIO_SECRET_KEY=CHANGEME_SECRET_KEY
-   MINIO_BUCKET=rgrid-staging
+10. **Test new user connection**
+    ```bash
+    # Connect as deploy user
+    ssh deploy@<YOUR_VPS_IP>
+    # Example: ssh deploy@162.55.123.45
 
-   # API
-   API_HOST=0.0.0.0
-   API_PORT=8000
+    # You should see: deploy@rgrid-main:~$
 
-   # Execution
-   EXECUTION_TIMEOUT=300
-   CONTAINER_MEMORY_LIMIT=512m
-   CONTAINER_CPU_LIMIT=1.0
-   EOF
+    # Try root (should fail - this is good!)
+    ssh root@<YOUR_VPS_IP>
+    # Should say: Permission denied
+    ```
 
-   # Generate secure passwords
-   echo "DATABASE_PASSWORD=$(openssl rand -hex 16)"
-   echo "MINIO_ACCESS_KEY=$(openssl rand -hex 16)"
-   echo "MINIO_SECRET_KEY=$(openssl rand -hex 32)"
-
-   # Update staging.env with generated passwords
-   ```
-
-5. **Store Credentials Securely**
-   ```bash
-   # Save staging.env to password manager (1Password, LastPass, etc.)
-   # DO NOT commit to git
-   ```
-
-**Estimated time**: 20-30 minutes
+**Security checklist** ✅
+- [ ] Non-root user created
+- [ ] Root login disabled
+- [ ] Password authentication disabled (SSH key only)
+- [ ] Firewall enabled (SSH, HTTP, HTTPS only)
+- [ ] Fail2ban protecting against brute-force
+- [ ] Automatic security updates enabled
 
 ---
 
-### Phase 2: Agent-Automated Deployment (With SSH Access)
+### Step 4: Create Environment Files & Manage Credentials (15 minutes)
 
-**What BMAD AGENT can do (with proper SSH credentials):**
+**[FROM: Your local machine terminal]**
 
-You can use a BMAD agent (DEV or custom deployment agent) to automate the entire deployment. Here's what the agent can handle:
+1. **Create credentials directory** (local, not on VPS yet)
+   ```bash
+   # Create a secure directory on your local machine
+   mkdir -p ~/.rgrid-credentials
+   chmod 700 ~/.rgrid-credentials
+   cd ~/.rgrid-credentials
+   ```
 
-#### Agent Instructions File: `deploy_tier3_staging.md`
+2. **Generate secure passwords**
+   ```bash
+   # Generate database passwords
+   echo "STAGING_DB_PASSWORD=$(openssl rand -hex 16)" >> credentials.txt
+   echo "PRODUCTION_DB_PASSWORD=$(openssl rand -hex 16)" >> credentials.txt
 
-Create this file and give it to an agent:
+   # Generate MinIO credentials
+   echo "STAGING_MINIO_ACCESS=$(openssl rand -hex 16)" >> credentials.txt
+   echo "STAGING_MINIO_SECRET=$(openssl rand -hex 32)" >> credentials.txt
+   echo "PRODUCTION_MINIO_ACCESS=$(openssl rand -hex 16)" >> credentials.txt
+   echo "PRODUCTION_MINIO_SECRET=$(openssl rand -hex 32)" >> credentials.txt
+
+   # Display credentials
+   cat credentials.txt
+   # SAVE THESE! You'll need them in the next step.
+   ```
+
+3. **Create staging environment file**
+   ```bash
+   # Create staging.env
+   cat > staging.env <<'EOF'
+# RGrid Staging Environment
+# DO NOT COMMIT TO GIT!
+
+# Database
+DATABASE_URL=postgresql://rgrid_staging:<STAGING_DB_PASSWORD>@localhost:5433/rgrid_staging
+
+# MinIO
+MINIO_ENDPOINT=localhost:9001
+MINIO_ACCESS_KEY=<STAGING_MINIO_ACCESS>
+MINIO_SECRET_KEY=<STAGING_MINIO_SECRET>
+MINIO_BUCKET=rgrid-staging
+MINIO_SECURE=false
+
+# API
+API_HOST=0.0.0.0
+API_PORT=8001
+API_ENV=staging
+
+# Execution Settings
+EXECUTION_TIMEOUT=300
+CONTAINER_MEMORY_LIMIT=512m
+CONTAINER_CPU_LIMIT=1.0
+
+# Docker Network
+DOCKER_NETWORK=rgrid-staging
+EOF
+   ```
+
+4. **Create production environment file**
+   ```bash
+   # Create production.env
+   cat > production.env <<'EOF'
+# RGrid Production Environment
+# DO NOT COMMIT TO GIT!
+
+# Database
+DATABASE_URL=postgresql://rgrid_production:<PRODUCTION_DB_PASSWORD>@localhost:5432/rgrid_production
+
+# MinIO
+MINIO_ENDPOINT=localhost:9000
+MINIO_ACCESS_KEY=<PRODUCTION_MINIO_ACCESS>
+MINIO_SECRET_KEY=<PRODUCTION_MINIO_SECRET>
+MINIO_BUCKET=rgrid-production
+MINIO_SECURE=false
+
+# API
+API_HOST=0.0.0.0
+API_PORT=8000
+API_ENV=production
+
+# Execution Settings
+EXECUTION_TIMEOUT=300
+CONTAINER_MEMORY_LIMIT=512m
+CONTAINER_CPU_LIMIT=1.0
+
+# Docker Network
+DOCKER_NETWORK=rgrid-production
+EOF
+   ```
+
+5. **Replace placeholders with actual passwords**
+   ```bash
+   # Open staging.env and replace:
+   # <STAGING_DB_PASSWORD> with value from credentials.txt
+   # <STAGING_MINIO_ACCESS> with value from credentials.txt
+   # <STAGING_MINIO_SECRET> with value from credentials.txt
+   nano staging.env
+   # Ctrl+X, Y, Enter to save
+
+   # Same for production.env
+   nano production.env
+   # Ctrl+X, Y, Enter to save
+   ```
+
+6. **Store credentials in password manager** (CRITICAL!)
+
+   **Option A: 1Password, LastPass, Bitwarden (recommended)**
+   - Create a new secure note called "RGrid VPS Credentials"
+   - Paste contents of `credentials.txt`
+   - Attach `staging.env` and `production.env` files
+   - Delete local copies after uploading:
+     ```bash
+     # After uploading to password manager:
+     shred -u credentials.txt  # Secure delete
+     ```
+
+   **Option B: Encrypted file on your computer**
+   ```bash
+   # Encrypt with GPG
+   gpg -c credentials.txt
+   # Enter a strong passphrase
+   # Creates credentials.txt.gpg
+
+   # Delete original
+   shred -u credentials.txt
+
+   # To decrypt later:
+   # gpg credentials.txt.gpg
+   ```
+
+   **⚠️ NEVER commit .env files to Git!**
+
+7. **Copy environment files to VPS**
+   ```bash
+   # Copy staging.env
+   scp staging.env deploy@<YOUR_VPS_IP>:~/staging.env
+
+   # Copy production.env
+   scp production.env deploy@<YOUR_VPS_IP>:~/production.env
+
+   # Verify
+   ssh deploy@<YOUR_VPS_IP> "ls -la ~/*.env"
+   # Should show: staging.env and production.env
+   ```
+
+**Credential Security Best Practices**:
+- ✅ Store in password manager (1Password, LastPass, etc.)
+- ✅ Use different passwords for staging vs production
+- ✅ Never commit to Git (add `*.env` to `.gitignore`)
+- ✅ Use SSH keys instead of passwords
+- ✅ Rotate passwords every 90 days (for production)
+
+**Where to store what:**
+
+| Credential Type | Where to Store | Why |
+|----------------|----------------|-----|
+| SSH Private Key | `~/.ssh/id_ed25519` (local machine) | Encrypted by OS, never share |
+| Database Passwords | Password manager + VPS .env files | Encrypted at rest, access controlled |
+| MinIO Keys | Password manager + VPS .env files | Encrypted at rest, access controlled |
+| VPS Root Password | Password manager only | Emergency access only |
+| Deploy User Password | Password manager only | Backup if SSH key lost |
+
+---
+
+## 📋 Part 2: Automated Deployment (Agent or Manual - 45 minutes)
+
+### Option A: Agent-Assisted Deployment (Recommended)
+
+**[FROM: Your local machine - BMAD agent session]**
+
+Create a file called `deploy-rgrid.md` and give it to a BMAD agent:
 
 ```markdown
-# Deploy RGrid Tier 3 to Staging
+# Deploy RGrid Dual Environment to VPS
 
-## Prerequisites
-- VPS IP: <VPS_IP>
-- SSH user: deploy
-- SSH key available on local machine
-- staging.env file created with credentials
+## Context
+- VPS IP: <YOUR_VPS_IP>
+- SSH User: deploy
+- SSH Key: ~/.ssh/id_ed25519
+- Environment files: staging.env and production.env already on VPS
 
 ## Task
+Deploy both staging and production environments to the VPS. Follow all steps sequentially.
 
-Deploy RGrid Tier 3 to staging VPS and verify all services running.
-
-## Steps
+## Deployment Steps
 
 ### 1. Install Base Dependencies
 
-SSH into VPS and install:
+[VPS] Connect and install Docker, Docker Compose, Python 3.11:
+
 ```bash
-ssh deploy@<VPS_IP>
+ssh deploy@<YOUR_VPS_IP>
 
 # Update system
-sudo apt update && sudo apt upgrade -y
+sudo apt update
 
 # Install Docker
 curl -fsSL https://get.docker.com -o get-docker.sh
 sudo sh get-docker.sh
 sudo usermod -aG docker deploy
+rm get-docker.sh
 
 # Install Docker Compose
 sudo apt install docker-compose -y
 
+# Install Python 3.11 and venv
+sudo apt install python3.11 python3.11-venv python3-pip git -y
+
 # Install PostgreSQL client (for testing)
 sudo apt install postgresql-client -y
 
-# Install Python 3.11
-sudo apt install python3.11 python3.11-venv python3-pip -y
+# Install NGINX (reverse proxy)
+sudo apt install nginx -y
+
+# Log out and back in for Docker group to take effect
+exit
+```
+
+[LOCAL] Reconnect:
+```bash
+ssh deploy@<YOUR_VPS_IP>
 ```
 
 ### 2. Clone Repository
 
+[VPS] Clone the RGrid repository:
+
 ```bash
-# Clone repo (or use git deploy key)
-git clone https://github.com/yourusername/rgrid.git
+cd ~
+git clone https://github.com/sna4ever/rgrid.git
 cd rgrid
 git checkout main
 ```
 
-### 3. Deploy Database
+### 3. Set Up Docker Networks
+
+[VPS] Create isolated networks for each environment:
 
 ```bash
-# Create docker-compose.yml for services
-cat > docker-compose.staging.yml <<EOF
+# Create staging network
+docker network create rgrid-staging
+
+# Create production network
+docker network create rgrid-production
+
+# Verify
+docker network ls | grep rgrid
+```
+
+### 4. Deploy Staging Environment
+
+[VPS] Set up staging databases and services:
+
+```bash
+# Create staging docker-compose
+cat > ~/rgrid/docker-compose.staging.yml <<'EOF'
 version: '3.8'
 
 services:
-  postgres:
+  postgres-staging:
     image: postgres:15
+    container_name: postgres-staging
     environment:
-      POSTGRES_USER: rgrid
-      POSTGRES_PASSWORD: \${DATABASE_PASSWORD}
-      POSTGRES_DB: rgrid
+      POSTGRES_USER: rgrid_staging
+      POSTGRES_PASSWORD: ${STAGING_DB_PASSWORD}
+      POSTGRES_DB: rgrid_staging
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_staging_data:/var/lib/postgresql/data
+    networks:
+      - rgrid-staging
+    restart: unless-stopped
+
+  minio-staging:
+    image: minio/minio:latest
+    container_name: minio-staging
+    command: server /data --console-address ":9091"
+    environment:
+      MINIO_ROOT_USER: ${STAGING_MINIO_ACCESS}
+      MINIO_ROOT_PASSWORD: ${STAGING_MINIO_SECRET}
+    ports:
+      - "9001:9000"
+      - "9091:9091"
+    volumes:
+      - minio_staging_data:/data
+    networks:
+      - rgrid-staging
+    restart: unless-stopped
+
+networks:
+  rgrid-staging:
+    external: true
+
+volumes:
+  postgres_staging_data:
+  minio_staging_data:
+EOF
+
+# Start staging services
+cd ~/rgrid
+docker-compose -f docker-compose.staging.yml --env-file ~/staging.env up -d
+
+# Wait for services to be ready
+sleep 15
+
+# Verify staging services
+docker ps | grep staging
+```
+
+### 5. Deploy Production Environment
+
+[VPS] Set up production databases and services:
+
+```bash
+# Create production docker-compose
+cat > ~/rgrid/docker-compose.production.yml <<'EOF'
+version: '3.8'
+
+services:
+  postgres-production:
+    image: postgres:15
+    container_name: postgres-production
+    environment:
+      POSTGRES_USER: rgrid_production
+      POSTGRES_PASSWORD: ${PRODUCTION_DB_PASSWORD}
+      POSTGRES_DB: rgrid_production
     ports:
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_production_data:/var/lib/postgresql/data
+    networks:
+      - rgrid-production
+    restart: unless-stopped
 
-  minio:
-    image: minio/minio
-    command: server /data --console-address ":9001"
+  minio-production:
+    image: minio/minio:latest
+    container_name: minio-production
+    command: server /data --console-address ":9090"
     environment:
-      MINIO_ROOT_USER: \${MINIO_ACCESS_KEY}
-      MINIO_ROOT_PASSWORD: \${MINIO_SECRET_KEY}
+      MINIO_ROOT_USER: ${PRODUCTION_MINIO_ACCESS}
+      MINIO_ROOT_PASSWORD: ${PRODUCTION_MINIO_SECRET}
     ports:
       - "9000:9000"
-      - "9001:9001"
+      - "9090:9090"
     volumes:
-      - minio_data:/data
+      - minio_production_data:/data
+    networks:
+      - rgrid-production
+    restart: unless-stopped
+
+networks:
+  rgrid-production:
+    external: true
 
 volumes:
-  postgres_data:
-  minio_data:
+  postgres_production_data:
+  minio_production_data:
 EOF
 
-# Start services
-docker-compose -f docker-compose.staging.yml --env-file ../staging.env up -d
+# Start production services
+cd ~/rgrid
+docker-compose -f docker-compose.production.yml --env-file ~/production.env up -d
 
-# Wait for services to be ready
-sleep 10
+# Wait for services
+sleep 15
+
+# Verify production services
+docker ps | grep production
 ```
 
-### 4. Run Database Migrations
+### 6. Set Up Python Environment
+
+[VPS] Create virtual environment and install dependencies:
 
 ```bash
-# Create venv and install dependencies
+cd ~/rgrid
+
+# Create virtual environment
 python3.11 -m venv venv
+
+# Activate it
 source venv/bin/activate
+
+# Install API dependencies
+pip install --upgrade pip
 pip install -r api/requirements.txt
 
-# Run Alembic migrations
-cd api
-alembic upgrade head
-cd ..
+# Install runner dependencies
+pip install -r runner/requirements.txt
+
+# Install CLI dependencies
+pip install -r cli/requirements.txt
 ```
 
-### 5. Deploy API
+### 7. Run Database Migrations
+
+[VPS] Apply Alembic migrations for both environments:
 
 ```bash
-# Install API dependencies
-cd api
-source ../venv/bin/activate
-pip install -r requirements.txt
+# Staging migrations
+cd ~/rgrid/api
+source ~/rgrid/venv/bin/activate
+export $(cat ~/staging.env | xargs)
+alembic upgrade head
 
-# Start API with systemd (or screen/tmux for testing)
-# Option A: Systemd service (production-like)
-sudo tee /etc/systemd/system/rgrid-api.service > /dev/null <<EOF
+# Production migrations
+export $(cat ~/production.env | xargs)
+alembic upgrade head
+
+cd ~
+```
+
+### 8. Create MinIO Buckets
+
+[VPS] Create S3 buckets for both environments:
+
+```bash
+# Install MinIO client
+wget https://dl.min.io/client/mc/release/linux-amd64/mc
+chmod +x mc
+sudo mv mc /usr/local/bin/
+
+# Configure staging MinIO
+mc alias set staging http://localhost:9001 ${STAGING_MINIO_ACCESS} ${STAGING_MINIO_SECRET}
+mc mb staging/rgrid-staging
+mc anonymous set download staging/rgrid-staging
+
+# Configure production MinIO
+mc alias set production http://localhost:9000 ${PRODUCTION_MINIO_ACCESS} ${PRODUCTION_MINIO_SECRET}
+mc mb production/rgrid-production
+mc anonymous set download production/rgrid-production
+
+# Verify buckets
+mc ls staging
+mc ls production
+```
+
+### 9. Deploy API Services (Systemd)
+
+[VPS] Create systemd services for both APIs:
+
+```bash
+# Staging API service
+sudo tee /etc/systemd/system/rgrid-api-staging.service > /dev/null <<'EOF'
 [Unit]
-Description=RGrid API
-After=network.target postgresql.service
+Description=RGrid API (Staging)
+After=network.target docker.service
 
 [Service]
 Type=simple
 User=deploy
 WorkingDirectory=/home/deploy/rgrid/api
 EnvironmentFile=/home/deploy/staging.env
-ExecStart=/home/deploy/rgrid/venv/bin/uvicorn api.main:app --host 0.0.0.0 --port 8000
+ExecStart=/home/deploy/rgrid/venv/bin/uvicorn api.main:app --host 0.0.0.0 --port 8001
 Restart=always
+RestartSec=10
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
+# Production API service
+sudo tee /etc/systemd/system/rgrid-api-production.service > /dev/null <<'EOF'
+[Unit]
+Description=RGrid API (Production)
+After=network.target docker.service
+
+[Service]
+Type=simple
+User=deploy
+WorkingDirectory=/home/deploy/rgrid/api
+EnvironmentFile=/home/deploy/production.env
+ExecStart=/home/deploy/rgrid/venv/bin/python -m uvicorn api.main:app --host 0.0.0.0 --port 8000
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# Reload systemd
 sudo systemctl daemon-reload
-sudo systemctl enable rgrid-api
-sudo systemctl start rgrid-api
+
+# Start staging API
+sudo systemctl enable rgrid-api-staging
+sudo systemctl start rgrid-api-staging
+
+# Start production API
+sudo systemctl enable rgrid-api-production
+sudo systemctl start rgrid-api-production
 
 # Check status
-sudo systemctl status rgrid-api
+sudo systemctl status rgrid-api-staging
+sudo systemctl status rgrid-api-production
 ```
 
-### 6. Deploy Runner
+### 10. Deploy Runner Services (Systemd)
+
+[VPS] Create systemd services for both runners:
 
 ```bash
-# Start runner (for local execution in Tier 3)
-# Option: Screen session for testing
-screen -S rgrid-runner
-source venv/bin/activate
-cd runner
-python -m runner.worker
-# Ctrl+A, D to detach
-
-# Option: Systemd service (better)
-sudo tee /etc/systemd/system/rgrid-runner.service > /dev/null <<EOF
+# Staging runner service
+sudo tee /etc/systemd/system/rgrid-runner-staging.service > /dev/null <<'EOF'
 [Unit]
-Description=RGrid Runner
+Description=RGrid Runner (Staging)
 After=network.target docker.service
 
 [Service]
@@ -304,373 +862,742 @@ WorkingDirectory=/home/deploy/rgrid/runner
 EnvironmentFile=/home/deploy/staging.env
 ExecStart=/home/deploy/rgrid/venv/bin/python -m runner.worker
 Restart=always
+RestartSec=10
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
+# Production runner service
+sudo tee /etc/systemd/system/rgrid-runner-production.service > /dev/null <<'EOF'
+[Unit]
+Description=RGrid Runner (Production)
+After=network.target docker.service
+
+[Service]
+Type=simple
+User=deploy
+WorkingDirectory=/home/deploy/rgrid/runner
+EnvironmentFile=/home/deploy/production.env
+ExecStart=/home/deploy/rgrid/venv/bin/python -m runner.worker
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# Reload systemd
 sudo systemctl daemon-reload
-sudo systemctl enable rgrid-runner
-sudo systemctl start rgrid-runner
-```
 
-### 7. Verify Deployment
+# Start staging runner
+sudo systemctl enable rgrid-runner-staging
+sudo systemctl start rgrid-runner-staging
 
-```bash
-# Check all services running
-docker ps  # Should see postgres and minio
-sudo systemctl status rgrid-api
-sudo systemctl status rgrid-runner
-
-# Test API health
-curl http://localhost:8000/health
-
-# Test MinIO
-curl http://localhost:9000/minio/health/live
-```
-
-### 8. Configure Firewall (Security)
-
-```bash
-# Install ufw
-sudo apt install ufw -y
-
-# Allow SSH, API, MinIO console
-sudo ufw allow 22/tcp    # SSH
-sudo ufw allow 8000/tcp  # API
-sudo ufw allow 9001/tcp  # MinIO console (optional)
-
-# Enable firewall
-sudo ufw --force enable
+# Start production runner
+sudo systemctl enable rgrid-runner-production
+sudo systemctl start rgrid-runner-production
 
 # Check status
-sudo ufw status
+sudo systemctl status rgrid-runner-staging
+sudo systemctl status rgrid-runner-production
+```
+
+### 11. Configure NGINX Reverse Proxy
+
+[VPS] Set up NGINX to route traffic by domain:
+
+```bash
+# Remove default site
+sudo rm /etc/nginx/sites-enabled/default
+
+# Create staging config
+sudo tee /etc/nginx/sites-available/rgrid-staging <<'EOF'
+server {
+    listen 80;
+    server_name staging.rgrid.dev;
+
+    location / {
+        proxy_pass http://localhost:8001;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+EOF
+
+# Create production config
+sudo tee /etc/nginx/sites-available/rgrid-production <<'EOF'
+server {
+    listen 80;
+    server_name api.rgrid.dev;
+
+    location / {
+        proxy_pass http://localhost:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+EOF
+
+# Enable sites
+sudo ln -s /etc/nginx/sites-available/rgrid-staging /etc/nginx/sites-enabled/
+sudo ln -s /etc/nginx/sites-available/rgrid-production /etc/nginx/sites-enabled/
+
+# Test configuration
+sudo nginx -t
+
+# Reload NGINX
+sudo systemctl reload nginx
+```
+
+### 12. Install SSL Certificates (Let's Encrypt)
+
+[VPS] Set up HTTPS with free SSL certificates:
+
+```bash
+# Install Certbot
+sudo apt install certbot python3-certbot-nginx -y
+
+# Get certificate for staging
+sudo certbot --nginx -d staging.rgrid.dev --non-interactive --agree-tos -m your-email@example.com
+
+# Get certificate for production
+sudo certbot --nginx -d api.rgrid.dev --non-interactive --agree-tos -m your-email@example.com
+
+# Certbot will automatically configure NGINX for HTTPS
+# Certificates auto-renew every 90 days
+```
+
+### 13. Verify Deployment
+
+[VPS] Check all services are running:
+
+```bash
+# Check Docker containers
+docker ps
+
+# Should see 4 containers:
+# - postgres-staging
+# - minio-staging
+# - postgres-production
+# - minio-production
+
+# Check systemd services
+sudo systemctl status rgrid-api-staging
+sudo systemctl status rgrid-api-production
+sudo systemctl status rgrid-runner-staging
+sudo systemctl status rgrid-runner-production
+
+# All should show: active (running)
+
+# Test APIs locally
+curl http://localhost:8001/health
+curl http://localhost:8000/health
+
+# Both should return: {"status":"healthy"}
+```
+
+[LOCAL] Test from your computer:
+
+```bash
+# Test staging
+curl https://staging.rgrid.dev/health
+
+# Test production
+curl https://api.rgrid.dev/health
+
+# Both should return: {"status":"healthy"}
 ```
 
 ## Success Criteria
 
-All checks pass:
-- [ ] PostgreSQL running (docker ps shows postgres container)
-- [ ] MinIO running (docker ps shows minio container)
-- [ ] API responding (curl http://localhost:8000/health returns 200)
-- [ ] Runner process running (systemctl status rgrid-runner shows active)
-- [ ] Database migrations applied (alembic current shows latest revision)
-- [ ] MinIO bucket created
-- [ ] Firewall configured
+All checks must pass:
+- [ ] 4 Docker containers running (postgres + minio for both envs)
+- [ ] 4 systemd services active (API + runner for both envs)
+- [ ] NGINX routing correctly by domain
+- [ ] SSL certificates installed and working
+- [ ] Database migrations applied for both envs
+- [ ] MinIO buckets created for both envs
+- [ ] Health endpoints responding on both staging and production
 ```
 
-**What to give the agent:**
+**To use this:**
 ```bash
-# Copy staging.env to VPS (agent needs this)
-scp staging.env deploy@<VPS_IP>:~/
-
-# Give agent SSH access (agent needs to SSH)
-# Option A: Share SSH private key temporarily (less secure)
-# Option B: Use ssh-agent forwarding
-# Option C: Create deploy key specifically for agent
-
-# Then run:
-execute deploy_tier3_staging.md
+# [LOCAL] In a BMAD agent session:
+execute deploy-rgrid.md
 ```
 
-**Estimated time**: 15-20 minutes (automated)
+The agent will SSH into your VPS and execute all steps automatically.
 
 ---
 
-### Phase 3: Manual Deployment (If You Prefer)
+### Option B: Manual Deployment
 
-**If you want to deploy yourself** (without agent):
+If you prefer to do it yourself, follow all the steps in the `deploy-rgrid.md` file above, executing each command block sequentially.
 
-```bash
-# Follow the same steps from deploy_tier3_staging.md manually
-# SSH into VPS and run each command
-```
-
-**Estimated time**: 45-60 minutes (manual)
+**Estimated time**: 45-60 minutes
 
 ---
 
-## Testing Plan
+## 🧪 Testing Plan (Both Environments)
 
-### Test 1: Database Migrations (Tier 3 - Story NEW-3)
+### Test Each Tier 3 Feature on Staging First, Then Production
 
-**Test**: Alembic migrations work correctly
+For each test, run on **staging** first. If it passes, run on **production**.
+
+#### Test 1: Database Migrations (Story NEW-3)
+
+**[LOCAL]** Test migrations work:
 
 ```bash
-# SSH into staging
-ssh deploy@<VPS_IP>
+# SSH into VPS
+ssh deploy@<YOUR_VPS_IP>
+
+# Test staging migrations
+cd ~/rgrid/api
+source ~/rgrid/venv/bin/activate
+export $(cat ~/staging.env | xargs)
 
 # Check current migration
-cd /home/deploy/rgrid/api
-source ../venv/bin/activate
 alembic current
 
-# Should show latest migration
-# Expected: "head" or specific revision hash
-
-# Test: Add a test migration
+# Create test migration
 alembic revision -m "test_migration"
 alembic upgrade head
 alembic downgrade -1
 alembic upgrade head
 
-# ✅ PASS: Migrations work without errors
+# ✅ PASS if no errors
+
+# Test production migrations
+export $(cat ~/production.env | xargs)
+alembic current
+# ✅ Should show same migration version
 ```
 
 ---
 
-### Test 2: Container Resource Limits (Tier 3 - Story NEW-5)
+#### Test 2: Resource Limits (Story NEW-5)
 
-**Test**: Containers can't exhaust host resources
+**[LOCAL]** Test container memory limits:
 
 ```bash
 # Create memory-hogging script
-cat > /tmp/memory_hog.py <<EOF
+cat > /tmp/memory_hog.py <<'EOF'
 import numpy as np
 arrays = []
 for i in range(100):
     arrays.append(np.zeros((256, 1024, 1024)))  # Try to allocate 25GB
+    print(f"Allocated {i+1} GB")
 EOF
 
-# Run via rgrid CLI (from your local machine)
+# Configure CLI for staging
+export RGRID_API_URL=https://staging.rgrid.dev
+
+# Run script (should be killed at 512MB)
 rgrid run /tmp/memory_hog.py
 
-# Expected: Container killed after exceeding 512MB limit
-# Check logs: rgrid logs <exec_id>
-# Should show: "Container killed (out of memory)"
+# Check logs
+rgrid logs <exec_id>
+# Should show: Container killed (out of memory)
 
-# ✅ PASS: Container killed, host not affected
+# ✅ PASS if container was killed before exhausting server RAM
+
+# Test on production
+export RGRID_API_URL=https://api.rgrid.dev
+rgrid run /tmp/memory_hog.py
+# Should also be killed
 ```
 
 ---
 
-### Test 3: Job Timeout (Tier 3 - Story NEW-6)
+#### Test 3: Job Timeout (Story NEW-6)
 
-**Test**: Long-running jobs are killed
+**[LOCAL]** Test job timeouts:
 
 ```bash
-# Create long-running script
-cat > /tmp/infinite_loop.py <<EOF
+# Create infinite loop script
+cat > /tmp/infinite_loop.py <<'EOF'
 import time
 while True:
     time.sleep(1)
+    print("Still running...")
 EOF
 
-# Run with timeout (default 300s = 5 minutes)
+# Test on staging
+export RGRID_API_URL=https://staging.rgrid.dev
 rgrid run /tmp/infinite_loop.py
 
-# Wait 5 minutes
-# Expected: Job killed after 300 seconds
-# Check status: rgrid status <exec_id>
-# Should show: "failed - Timeout after 300s"
+# Wait 5 minutes (timeout is 300s)
+# After 5 minutes, check status
+rgrid status <exec_id>
+# Should show: failed - Timeout after 300s
 
-# ✅ PASS: Job timed out correctly
+# ✅ PASS if job timed out correctly
+
+# Test on production
+export RGRID_API_URL=https://api.rgrid.dev
+rgrid run /tmp/infinite_loop.py
+# Wait 5 minutes, verify timeout
 ```
 
 ---
 
-### Test 4: Pre-configured Runtimes (Tier 3 - Story 2-3)
+#### Test 4: Pre-configured Runtimes (Story 2-3)
 
-**Test**: Default runtime works without --runtime flag
+**[LOCAL]** Test default runtime:
 
 ```bash
-# Create simple Python script
-cat > /tmp/hello.py <<EOF
-print("Hello from Python!")
+# Create simple script
+cat > /tmp/hello.py <<'EOF'
+import sys
+print(f"Hello from Python {sys.version}")
 EOF
 
-# Run WITHOUT --runtime flag
+# Test on staging (no --runtime flag)
+export RGRID_API_URL=https://staging.rgrid.dev
 rgrid run /tmp/hello.py
 
-# Expected: Uses python:3.11 by default
-# Check logs: rgrid logs <exec_id>
-# Should show: "Hello from Python!"
+# Check logs
+rgrid logs <exec_id>
+# Should show: Hello from Python 3.11.x
 
-# ✅ PASS: Default runtime worked
+# ✅ PASS if default runtime worked
+
+# Test on production
+export RGRID_API_URL=https://api.rgrid.dev
+rgrid run /tmp/hello.py
 ```
 
 ---
 
-### Test 5: Auto-detect Dependencies (Tier 3 - Story 2-4)
+#### Test 5: Auto-detect Dependencies (Story 2-4)
 
-**Test**: requirements.txt automatically installed
+**[LOCAL]** Test requirements.txt auto-install:
 
 ```bash
-# Create script that uses requests
-cat > /tmp/test_requests.py <<EOF
+# Create directory for test
+mkdir -p /tmp/rgrid-test
+cd /tmp/rgrid-test
+
+# Create script using requests
+cat > test_requests.py <<'EOF'
 import requests
 response = requests.get('https://httpbin.org/get')
 print(f"Status: {response.status_code}")
 EOF
 
 # Create requirements.txt
-cat > /tmp/requirements.txt <<EOF
+cat > requirements.txt <<'EOF'
 requests==2.31.0
 EOF
 
-# Run script (should auto-install requests)
-cd /tmp
+# Test on staging
+export RGRID_API_URL=https://staging.rgrid.dev
 rgrid run test_requests.py
 
-# Expected: Dependencies installed, script succeeds
-# Check logs: rgrid logs <exec_id>
-# Should show: "Installing dependencies..." then "Status: 200"
+# Check logs
+rgrid logs <exec_id>
+# Should show: Installing dependencies... then Status: 200
 
-# ✅ PASS: Dependencies auto-installed
+# ✅ PASS if dependencies auto-installed
+
+# Test on production
+export RGRID_API_URL=https://api.rgrid.dev
+rgrid run test_requests.py
 ```
 
 ---
 
-### Test 6: Dead Worker Detection (Tier 3 - Story NEW-7)
+#### Test 6: Dead Worker Detection (Story NEW-7)
 
-**Test**: Dead worker jobs marked as failed
+**[VPS]** Test dead worker handling:
 
 ```bash
-# Start a job
+# Start a long-running job on staging
+# [LOCAL]
+export RGRID_API_URL=https://staging.rgrid.dev
 rgrid run /tmp/infinite_loop.py
+# Note the exec_id
 
-# SSH into staging and kill runner
-ssh deploy@<VPS_IP>
-sudo systemctl stop rgrid-runner
+# [VPS] Kill the staging runner
+ssh deploy@<YOUR_VPS_IP>
+sudo systemctl stop rgrid-runner-staging
 
 # Wait 2 minutes for heartbeat timeout
 sleep 120
 
-# Check job status
+# [LOCAL] Check job status
 rgrid status <exec_id>
+# Should show: failed - Worker died unexpectedly
 
-# Expected: Job marked as "failed - Worker died unexpectedly"
+# [VPS] Restart runner
+sudo systemctl start rgrid-runner-staging
 
-# Restart runner
-ssh deploy@<VPS_IP>
-sudo systemctl start rgrid-runner
+# ✅ PASS if job was marked as failed
 
-# ✅ PASS: Dead worker detected, job marked failed
+# Test on production
+# [LOCAL]
+export RGRID_API_URL=https://api.rgrid.dev
+rgrid run /tmp/infinite_loop.py
+
+# [VPS]
+sudo systemctl stop rgrid-runner-production
+sleep 120
+sudo systemctl start rgrid-runner-production
+
+# [LOCAL]
+rgrid status <exec_id>
+# Should be failed
 ```
 
 ---
 
-### Test 7: Structured Error Messages (Tier 3 - Story 10-4)
+#### Test 7: Structured Error Messages (Story 10-4)
 
-**Test**: Clear, actionable error messages
+**[LOCAL]** Test error clarity:
 
 ```bash
-# Test: File not found
+# Test file not found
+export RGRID_API_URL=https://staging.rgrid.dev
 rgrid run nonexistent.py
 
-# Expected:
+# Should show:
 # ❌ Validation Error: Script file not found
-#    File: nonexistent.py
-#    💡 Suggestions:
-#    - Check the file path is correct
+#    💡 Suggestions: Check the file path...
 
-# Test: Invalid runtime
-rgrid run hello.py --runtime invalid:123
+# ✅ PASS if error message is clear and actionable
 
-# Expected:
-# ❌ Validation Error: Invalid runtime
-#    Requested: invalid:123
-#    Available: python3.11, python3.12, node20
-
-# ✅ PASS: Error messages are clear and actionable
+# Test on production
+export RGRID_API_URL=https://api.rgrid.dev
+rgrid run nonexistent.py
 ```
 
 ---
 
-### Test 8: Large File Streaming (Tier 3 - Story 7-6)
+#### Test 8: Large File Streaming (Story 7-6)
 
-**Test**: 500MB file uploads and downloads
+**[LOCAL]** Test large file upload:
 
 ```bash
-# Create 500MB test file
+# Create 500MB file
 dd if=/dev/zero of=/tmp/large_test.dat bs=1M count=500
 
-# Create script that reads file
-cat > /tmp/process_large.py <<EOF
+# Create processing script
+cat > /tmp/process_large.py <<'EOF'
 import sys
 file_path = sys.argv[1]
 size = len(open(file_path, 'rb').read())
 print(f"Processed {size} bytes")
 EOF
 
-# Upload and run (should stream, not load into memory)
+# Test on staging
+export RGRID_API_URL=https://staging.rgrid.dev
 rgrid run /tmp/process_large.py /tmp/large_test.dat
 
-# Expected:
-# - Progress bar during upload
-# - No memory spike on client or server
-# - Script succeeds
-# - Output downloaded
+# Watch for progress bar during upload
+# Check completion
+rgrid logs <exec_id>
+# Should show: Processed 524288000 bytes
 
-# Check memory usage during transfer
-ssh deploy@<VPS_IP>
-htop  # Memory should stay constant
+# ✅ PASS if large file uploaded and processed
 
-# ✅ PASS: Large file streamed efficiently
+# [VPS] Check memory didn't spike
+ssh deploy@<YOUR_VPS_IP>
+htop  # Memory should stay under 2GB
+
+# Test on production
+export RGRID_API_URL=https://api.rgrid.dev
+rgrid run /tmp/process_large.py /tmp/large_test.dat
 ```
 
 ---
 
-## Success Criteria
+## ✅ Success Criteria
 
-All 8 tests must pass:
+All 8 tests pass on BOTH staging and production:
 
-- [x] Database migrations work (Story NEW-3)
-- [x] Resource limits enforced (Story NEW-5)
-- [x] Job timeouts work (Story NEW-6)
-- [x] Default runtime works (Story 2-3)
-- [x] Dependencies auto-installed (Story 2-4)
-- [x] Dead worker detection (Story NEW-7)
-- [x] Clear error messages (Story 10-4)
-- [x] Large file streaming (Story 7-6)
+**Staging**:
+- [ ] Database migrations work
+- [ ] Resource limits enforced
+- [ ] Job timeouts work
+- [ ] Default runtime works
+- [ ] Dependencies auto-installed
+- [ ] Dead worker detection works
+- [ ] Clear error messages
+- [ ] Large file streaming works
 
-**When all pass**: Tier 3 is VERIFIED production-ready ✅
+**Production**:
+- [ ] All 8 tests also pass
+- [ ] No errors in logs
+- [ ] Services stable for 24 hours
 
----
-
-## Cost Estimate
-
-**Staging Environment**:
-- Hetzner CX21: €5.83/month (~$6.50 USD)
-- Can destroy after testing (prorated by hour)
-- Testing duration: 2-4 hours
-- **Total cost**: ~$0.03 USD
-
-**Worth it?** Absolutely - validates production-readiness before launch.
+**When all pass**: Tier 3 is VERIFIED production-ready on both environments ✅
 
 ---
 
-## Next Steps After Testing
+## 📊 Monitoring & Maintenance
+
+### Check Service Health
+
+**[VPS]** Daily health check:
+
+```bash
+ssh deploy@<YOUR_VPS_IP>
+
+# Check all services
+sudo systemctl status rgrid-api-staging
+sudo systemctl status rgrid-api-production
+sudo systemctl status rgrid-runner-staging
+sudo systemctl status rgrid-runner-production
+
+# Check Docker containers
+docker ps
+
+# Check disk space
+df -h
+
+# Check memory usage
+free -h
+```
+
+### View Logs
+
+**[VPS]** Check logs when debugging:
+
+```bash
+# API logs
+sudo journalctl -u rgrid-api-staging -n 50 --no-pager
+sudo journalctl -u rgrid-api-production -n 50 --no-pager
+
+# Runner logs
+sudo journalctl -u rgrid-runner-staging -n 50 --no-pager
+sudo journalctl -u rgrid-runner-production -n 50 --no-pager
+
+# Follow logs in real-time
+sudo journalctl -u rgrid-api-staging -f
+```
+
+### Restart Services
+
+**[VPS]** If something breaks:
+
+```bash
+# Restart specific service
+sudo systemctl restart rgrid-api-staging
+
+# Restart all services
+sudo systemctl restart rgrid-api-staging rgrid-api-production rgrid-runner-staging rgrid-runner-production
+
+# Restart Docker containers
+docker restart postgres-staging minio-staging postgres-production minio-production
+```
+
+---
+
+## 🔄 Updating Code (Deploy New Features)
+
+### Staging Deployment (Test First)
+
+**[VPS]** Deploy to staging first:
+
+```bash
+ssh deploy@<YOUR_VPS_IP>
+
+# Pull latest code
+cd ~/rgrid
+git pull origin main
+
+# Activate venv
+source venv/bin/activate
+
+# Install any new dependencies
+pip install -r api/requirements.txt
+pip install -r runner/requirements.txt
+
+# Run migrations (staging)
+cd api
+export $(cat ~/staging.env | xargs)
+alembic upgrade head
+
+# Restart staging services
+sudo systemctl restart rgrid-api-staging
+sudo systemctl restart rgrid-runner-staging
+
+# Check health
+curl http://localhost:8001/health
+```
+
+### Production Deployment (After Staging Works)
+
+**[VPS]** Deploy to production:
+
+```bash
+# Run migrations (production)
+export $(cat ~/production.env | xargs)
+alembic upgrade head
+
+# Restart production services
+sudo systemctl restart rgrid-api-production
+sudo systemctl restart rgrid-runner-production
+
+# Check health
+curl http://localhost:8000/health
+```
+
+**Best Practice**: Always test on staging for at least 1 hour before deploying to production.
+
+---
+
+## 🚨 Rollback Plan
+
+### If Staging Breaks
+
+**[VPS]** Reset staging environment:
+
+```bash
+# Stop services
+sudo systemctl stop rgrid-api-staging rgrid-runner-staging
+docker-compose -f docker-compose.staging.yml down
+
+# Delete data (if needed)
+docker volume rm rgrid_postgres_staging_data rgrid_minio_staging_data
+
+# Re-deploy from Part 2, Step 4
+```
+
+### If Production Breaks
+
+**[VPS]** Emergency rollback:
+
+```bash
+# Stop production services
+sudo systemctl stop rgrid-api-production rgrid-runner-production
+
+# Revert code
+cd ~/rgrid
+git log --oneline -5  # Find last working commit
+git checkout <commit-hash>
+
+# Downgrade database (if migration broke it)
+cd api
+export $(cat ~/production.env | xargs)
+alembic downgrade -1  # Go back one migration
+
+# Restart services
+sudo systemctl start rgrid-api-production rgrid-runner-production
+
+# Verify
+curl http://localhost:8000/health
+```
+
+**Critical**: Always have a database backup before deploying to production!
+
+### Database Backup (Set Up Now!)
+
+**[VPS]** Create automated backups:
+
+```bash
+# Create backup script
+cat > ~/backup-databases.sh <<'EOF'
+#!/bin/bash
+DATE=$(date +%Y%m%d_%H%M%S)
+
+# Backup staging
+docker exec postgres-staging pg_dump -U rgrid_staging rgrid_staging > ~/backups/staging_$DATE.sql
+
+# Backup production
+docker exec postgres-production pg_dump -U rgrid_production rgrid_production > ~/backups/production_$DATE.sql
+
+# Keep only last 7 days
+find ~/backups/ -name "*.sql" -mtime +7 -delete
+EOF
+
+chmod +x ~/backup-databases.sh
+mkdir -p ~/backups
+
+# Add to crontab (run daily at 2 AM)
+(crontab -l 2>/dev/null; echo "0 2 * * * /home/deploy/backup-databases.sh") | crontab -
+```
+
+---
+
+## 💡 Cost Optimization Tips
+
+1. **Single VPS**: You're already doing this! Saves $6/month.
+
+2. **Scale down when not testing**:
+   - Stop staging services when not actively testing
+   - Keep production running 24/7
+
+3. **Monitor disk usage**:
+   ```bash
+   # Clean up old Docker images monthly
+   docker system prune -a -f
+   ```
+
+4. **Upgrade only when needed**:
+   - CX21 is sufficient for 100-1000 jobs/day
+   - Upgrade to CX31 (4 vCPU, 8GB) when you hit limits
+
+---
+
+## 🎓 Beginner Glossary
+
+- **VPS**: Virtual Private Server - A computer you rent in a datacenter
+- **SSH**: Secure Shell - Encrypted remote access to your server
+- **Docker**: Containerization platform - packages apps with dependencies
+- **systemd**: Linux service manager - keeps apps running, restarts on crash
+- **NGINX**: Reverse proxy - routes web traffic to correct service
+- **Firewall (UFW)**: Security layer - blocks unauthorized access
+- **SSL/TLS**: Encryption for HTTPS - secures data in transit
+- **DNS**: Domain Name System - translates rgrid.dev to IP address
+- **PostgreSQL**: Relational database - stores structured data
+- **MinIO**: S3-compatible object storage - stores files/artifacts
+- **Alembic**: Database migration tool - version control for DB schema
+
+---
+
+## 📞 Getting Help
+
+**If something goes wrong:**
+
+1. **Check service status**:
+   ```bash
+   [VPS] sudo systemctl status rgrid-api-staging
+   ```
+
+2. **Check logs**:
+   ```bash
+   [VPS] sudo journalctl -u rgrid-api-staging -n 100 --no-pager
+   ```
+
+3. **Ask in this session**: Share the error message and I'll help debug
+
+4. **GitHub Issues**: Create an issue at https://github.com/sna4ever/rgrid/issues
+
+---
+
+## 🎯 Next Steps After Deployment
 
 Once all tests pass:
 
-1. **Document findings** in `TIER3_TEST_REPORT.md`
-2. **Keep staging environment** for ongoing development
-3. **Begin Tier 4**: Distributed Cloud (Ray + Hetzner autoscaling)
-4. **Consider production deployment** if you want to launch MVP
+1. **Document your setup** - Create `DEPLOYMENT_NOTES.md` with your specific IPs, domains, etc.
+
+2. **Set up monitoring** (optional but recommended):
+   - Install Uptime Kuma or similar
+   - Get alerts if services go down
+
+3. **Start using staging** - Test all new features here first
+
+4. **Begin Tier 4** - Distributed Cloud (Ray + Hetzner workers)
+
+5. **Consider production launch** - When ready for real users
 
 ---
 
-## Rollback Plan
-
-If something breaks during testing:
-
-```bash
-# Stop all services
-ssh deploy@<VPS_IP>
-sudo systemctl stop rgrid-api
-sudo systemctl stop rgrid-runner
-docker-compose -f docker-compose.staging.yml down
-
-# Reset database
-docker volume rm rgrid_postgres_data
-docker volume rm rgrid_minio_data
-
-# Start over from Phase 2, Step 3
-```
-
----
-
-## Questions?
-
-Ask in this session or create a GitHub issue. This deployment plan is designed to be straightforward - most complexity is in the initial VPS setup (which you do once).
+**You now have a production-ready RGrid deployment running both staging and production on a single VPS!** 🎉
