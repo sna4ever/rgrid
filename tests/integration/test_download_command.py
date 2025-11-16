@@ -5,7 +5,7 @@ from unittest.mock import Mock, patch, MagicMock
 from click.testing import CliRunner
 from pathlib import Path
 
-from rgrid.cli import cli
+from rgrid.cli import main
 
 
 class TestDownloadCommand:
@@ -44,7 +44,7 @@ class TestDownloadCommand:
     def test_download_command_exists(self, runner):
         """Test that download command is registered and shows in help."""
         # Act
-        result = runner.invoke(cli, ['download', '--help'])
+        result = runner.invoke(main, ['download', '--help'])
 
         # Assert
         assert result.exit_code == 0
@@ -61,7 +61,7 @@ class TestDownloadCommand:
 
             # Act
             with runner.isolated_filesystem(temp_dir=tmp_path):
-                result = runner.invoke(cli, ['download', exec_id])
+                result = runner.invoke(main, ['download', exec_id])
 
                 # Assert
                 assert result.exit_code == 0
@@ -79,7 +79,7 @@ class TestDownloadCommand:
             mock_download.return_value = True
 
             # Act
-            result = runner.invoke(cli, ['download', exec_id, '--output-dir', str(output_dir)])
+            result = runner.invoke(main, ['download', exec_id, '--output-dir', str(output_dir)])
 
             # Assert
             assert result.exit_code == 0
@@ -97,7 +97,7 @@ class TestDownloadCommand:
             mock.return_value = client
 
             # Act
-            result = runner.invoke(cli, ['download', exec_id])
+            result = runner.invoke(main, ['download', exec_id])
 
             # Assert
             assert result.exit_code == 0
@@ -109,7 +109,7 @@ class TestDownloadCommand:
         exec_id = 'exec_test123'
 
         # Act
-        result = runner.invoke(cli, ['download', exec_id, '--list'])
+        result = runner.invoke(main, ['download', exec_id, '--list'])
 
         # Assert
         assert result.exit_code == 0
@@ -128,7 +128,7 @@ class TestDownloadCommand:
 
             # Act
             with runner.isolated_filesystem(temp_dir=tmp_path):
-                result = runner.invoke(cli, ['download', exec_id, '--file', 'output1.txt'])
+                result = runner.invoke(main, ['download', exec_id, '--file', 'output1.txt'])
 
                 # Assert
                 assert result.exit_code == 0
@@ -163,7 +163,7 @@ class TestDownloadCommand:
 
             # Act
             with patch('rgrid.commands.run.display_batch_progress'):
-                result = runner.invoke(cli, [
+                result = runner.invoke(main, [
                     'run', str(script_file),
                     *[arg for f in batch_files for arg in ['--batch', f]],
                     '--remote-only'
