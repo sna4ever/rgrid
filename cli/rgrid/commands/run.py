@@ -122,16 +122,22 @@ def run(script: str, args: tuple[str, ...], runtime: str | None, env: tuple[str,
                     progress.update(task, advance=1)
 
             console.print(f"[green]✓[/green] Submitted {len(batch_files)} jobs")
-            console.print(f"\nMonitoring batch progress...\n")
 
-            # Display real-time progress (Tier 5 - Story 5-3)
-            try:
-                display_batch_progress(client, batch_id, poll_interval=2.0)
-            except KeyboardInterrupt:
-                # Handled in display_batch_progress
-                pass
-            finally:
+            # Handle output download based on --remote-only flag (Story 7-5)
+            if remote_only:
+                console.print(f"\n[cyan]ℹ[/cyan] Outputs stored remotely. Download with: [cyan]rgrid download {batch_id}[/cyan]")
                 client.close()
+            else:
+                console.print(f"\nMonitoring batch progress...\n")
+
+                # Display real-time progress (Tier 5 - Story 5-3)
+                try:
+                    display_batch_progress(client, batch_id, poll_interval=2.0)
+                except KeyboardInterrupt:
+                    # Handled in display_batch_progress
+                    pass
+                finally:
+                    client.close()
 
         except Exception as e:
             console.print(f"\n[red]Error:[/red] {e}")

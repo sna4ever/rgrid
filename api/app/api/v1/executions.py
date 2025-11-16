@@ -176,3 +176,71 @@ async def get_batch_status(
     statuses = [exec.status for exec in executions]
 
     return {"statuses": statuses}
+
+
+@router.get("/executions/{execution_id}/artifacts")
+async def get_execution_artifacts(
+    execution_id: str,
+    db: AsyncSession = Depends(get_db),
+    api_key: str = Depends(verify_api_key),
+) -> list[Dict]:
+    """
+    Get list of artifacts for an execution (Story 7-5).
+
+    Args:
+        execution_id: Execution ID to query
+        db: Database session
+        api_key: Authenticated API key
+
+    Returns:
+        List of artifact metadata dictionaries
+    """
+    from sqlalchemy import select
+    from app.models.artifact import Artifact
+
+    # Query all artifacts for this execution
+    result = await db.execute(
+        select(Artifact).where(Artifact.execution_id == execution_id)
+    )
+    artifacts = result.scalars().all()
+
+    # Convert to dictionaries
+    artifact_list = []
+    for artifact in artifacts:
+        artifact_list.append({
+            "artifact_id": artifact.artifact_id,
+            "execution_id": artifact.execution_id,
+            "artifact_type": artifact.artifact_type,
+            "filename": artifact.filename,
+            "file_path": artifact.file_path,
+            "size_bytes": artifact.size_bytes,
+            "content_type": artifact.content_type,
+            "created_at": artifact.created_at.isoformat() if artifact.created_at else None,
+        })
+
+    return artifact_list
+
+
+@router.post("/artifacts/download-url")
+async def get_artifact_download_url(
+    request: Dict,
+    api_key: str = Depends(verify_api_key),
+) -> Dict[str, str]:
+    """
+    Get presigned download URL for an artifact (Story 7-5).
+
+    Args:
+        request: Dictionary with "s3_key" field
+        api_key: Authenticated API key
+
+    Returns:
+        Dictionary with "download_url" field
+    """
+    s3_key = request.get("s3_key")
+    if not s3_key:
+        raise HTTPException(status_code=400, detail="Missing s3_key in request")
+
+    # Generate presigned GET URL (2 hour expiration)
+    download_url = minio_client.generate_presigned_download_url(s3_key, expiration=7200)
+
+    return {"download_url": download_url}

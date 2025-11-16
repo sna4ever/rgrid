@@ -110,7 +110,7 @@ class APIClient:
 
     def get_artifacts(self, execution_id: str) -> list[dict[str, Any]]:
         """
-        Get artifacts for an execution (Story 5-4).
+        Get artifacts for an execution (Story 7-5).
 
         Args:
             execution_id: Execution ID
@@ -118,9 +118,9 @@ class APIClient:
         Returns:
             List of artifact dictionaries
         """
-        # TODO: Implement proper artifacts API endpoint
-        # For now, return empty list as placeholder
-        return []
+        response = self.client.get(f"/api/v1/executions/{execution_id}/artifacts")
+        response.raise_for_status()
+        return response.json()
 
     def download_artifact(self, artifact: dict[str, Any], target_path: str) -> None:
         """
@@ -136,6 +136,23 @@ class APIClient:
         os.makedirs(os.path.dirname(target_path), exist_ok=True)
         with open(target_path, 'w') as f:
             f.write("")
+
+    def get_artifact_download_url(self, s3_key: str) -> str:
+        """
+        Get presigned download URL for an artifact (Story 7-5).
+
+        Args:
+            s3_key: S3 object key
+
+        Returns:
+            Presigned download URL
+        """
+        response = self.client.post(
+            "/api/v1/artifacts/download-url",
+            json={"s3_key": s3_key}
+        )
+        response.raise_for_status()
+        return response.json().get("download_url", "")
 
     def close(self) -> None:
         """Close client connection."""
