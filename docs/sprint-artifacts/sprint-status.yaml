@@ -51,7 +51,7 @@ development_status:
   2-1-implement-rgrid-run-command-basic-stub: done  # Tier 1
   2-2-implement-docker-container-execution-on-runner: done  # Tier 1
   2-3-implement-pre-configured-runtimes: done  # Tier 3 - 2025-11-15
-  2-4-auto-detect-and-install-python-dependencies: ready-for-dev  # Tier 3 (deferred)
+  2-4-auto-detect-and-install-python-dependencies: done  # Tier 3 - Dev 1 - COMPLETED 2025-11-16
   2-5-handle-script-input-files-as-arguments: done  # Tier 5 - Dev 1 - COMPLETED 2025-11-16
   2-6-collect-and-store-script-outputs: done  # Tier 2 - 2025-11-15 (stdout/stderr to DB)
   2-7-support-environment-variables-via-env-flag: done  # Tier 2 - 2025-11-15 (via -e flag)

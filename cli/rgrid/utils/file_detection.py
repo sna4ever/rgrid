@@ -44,15 +44,32 @@ def detect_requirements_file(script_path: str) -> Optional[str]:
         script_path: Path to the script file
 
     Returns:
-        Content of requirements.txt if found, None otherwise
+        Path to requirements.txt if found, None otherwise
     """
     script_dir = Path(script_path).parent
     requirements_path = script_dir / "requirements.txt"
 
     if requirements_path.exists() and requirements_path.is_file():
-        try:
-            return requirements_path.read_text()
-        except Exception:
-            return None
+        return str(requirements_path)
 
     return None
+
+
+def parse_requirements_content(content: str) -> bool:
+    """
+    Validate requirements.txt content format.
+
+    Args:
+        content: Content of requirements.txt file
+
+    Returns:
+        True if content is valid (including empty), False otherwise
+    """
+    # Empty content is valid
+    if not content or content.strip() == "":
+        return True
+
+    # For now, we accept any non-empty content as valid
+    # pip will handle validation during installation
+    # This allows for comments, blank lines, etc.
+    return True

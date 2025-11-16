@@ -58,11 +58,18 @@ def run(script: str, args: tuple[str, ...], runtime: str | None, env: tuple[str,
         raise click.Abort()
 
     # Story 6-2: Detect requirements.txt for dependency caching
-    requirements_content = detect_requirements_file(script)
-    if requirements_content:
-        req_count = len([line for line in requirements_content.strip().split('\n') if line.strip() and not line.startswith('#')])
-        console.print(f"[cyan]ℹ[/cyan] Detected requirements.txt with {req_count} dependencies")
-        console.print(f"[dim]  Dependencies will be cached for faster execution[/dim]\n")
+    requirements_path = detect_requirements_file(script)
+    requirements_content = None
+    if requirements_path:
+        # Read requirements.txt content
+        try:
+            requirements_content = Path(requirements_path).read_text()
+            req_count = len([line for line in requirements_content.strip().split('\n') if line.strip() and not line.startswith('#')])
+            console.print(f"[cyan]ℹ[/cyan] Detected requirements.txt with {req_count} dependencies")
+            console.print(f"[dim]  Dependencies will be cached for faster execution[/dim]\n")
+        except Exception as e:
+            console.print(f"[yellow]Warning:[/yellow] Could not read requirements.txt: {e}")
+            requirements_content = None
 
     # Parse environment variables
     env_vars = {}
