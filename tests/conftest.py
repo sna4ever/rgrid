@@ -5,6 +5,13 @@ Pytest configuration and shared fixtures.
 import pytest
 from typing import AsyncGenerator
 import asyncio
+import sys
+from pathlib import Path
+
+# Add api and cli to Python path for imports (Story 10-4)
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root / "api"))
+sys.path.insert(0, str(project_root / "cli"))
 
 
 @pytest.fixture(scope="session")
