@@ -1,5 +1,6 @@
 """File handling utilities for runner."""
 
+import gzip
 import httpx
 from pathlib import Path
 from typing import Dict, List
@@ -7,7 +8,10 @@ from typing import Dict, List
 
 def download_input_files(download_urls: Dict[str, str], work_dir: Path) -> Dict[str, Path]:
     """
-    Download input files from MinIO to work directory.
+    Download input files from MinIO to work directory using streaming.
+
+    Files are downloaded with streaming to support large files (>100MB).
+    Automatically decompresses gzip-compressed files.
 
     Args:
         download_urls: Dict mapping filename to presigned download URL
@@ -23,13 +27,29 @@ def download_input_files(download_urls: Dict[str, str], work_dir: Path) -> Dict[
 
     for filename, url in download_urls.items():
         try:
-            # Download file from presigned URL
-            with httpx.Client(timeout=300) as client:
-                response = client.get(url)
+            file_path = work_dir / filename
+
+            # Download file with streaming from presigned URL
+            with httpx.stream("GET", url, timeout=600) as response:
                 if response.status_code == 200:
-                    # Write to work directory
-                    file_path = work_dir / filename
-                    file_path.write_bytes(response.content)
+                    # Check if response is gzip compressed
+                    content_encoding = response.headers.get('content-encoding', '')
+                    is_gzipped = content_encoding.lower() == 'gzip'
+
+                    with open(file_path, 'wb') as f_out:
+                        if is_gzipped:
+                            # Decompress on the fly
+                            decompressor = gzip.GzipFile(fileobj=response.raw)
+                            while True:
+                                chunk = decompressor.read(8192)
+                                if not chunk:
+                                    break
+                                f_out.write(chunk)
+                        else:
+                            # Stream without decompression
+                            for chunk in response.iter_bytes(chunk_size=8192):
+                                f_out.write(chunk)
+
                     downloaded_files[filename] = file_path
         except Exception:
             # Skip failed downloads (could add logging here)
