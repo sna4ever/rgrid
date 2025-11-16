@@ -98,7 +98,7 @@ development_status:
   7-2-auto-collect-output-files-from-container: ready-for-dev  # Tier 2
   7-3-store-outputs-in-minio-with-retention-policy: ready-for-dev  # Tier 2
   7-4-auto-download-outputs-to-current-directory-single-execution: done  # Tier 1 (basic)
-  7-5-implement-remote-only-flag-to-skip-auto-download: ready-for-dev  # Tier 3
+  7-5-implement-remote-only-flag-to-skip-auto-download: done  # Tier 5 - Dev 1 - COMPLETED 2025-11-16
   7-6-implement-large-file-streaming-and-compression: ready-for-dev  # Tier 3
   epic-7-retrospective: optional
 

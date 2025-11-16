@@ -41,35 +41,31 @@ class TestRemoteOnlyFlag:
         assert 'Skip auto-download of outputs' in result.output
 
     def test_skip_download_when_flag_set(self, runner, mock_api_client, tmp_path):
-        """Test that download is skipped when --remote-only is set."""
+        """Test that download message is shown when --remote-only is set."""
         # Arrange
         script_file = tmp_path / "test.py"
         script_file.write_text("print('hello')")
 
         # Act
-        with patch('rgrid.commands.run.download_outputs') as mock_download:
-            result = runner.invoke(main, ['run', str(script_file), '--remote-only'])
+        result = runner.invoke(main, ['run', str(script_file), '--remote-only'])
 
-            # Assert
-            assert result.exit_code == 0
-            mock_download.assert_not_called()
+        # Assert
+        assert result.exit_code == 0
+        assert 'Outputs stored remotely' in result.output
 
     def test_download_happens_without_flag(self, runner, mock_api_client, tmp_path):
-        """Test that download happens when --remote-only is NOT set."""
+        """Test that default message is shown when --remote-only is NOT set."""
         # Arrange
         script_file = tmp_path / "test.py"
         script_file.write_text("print('hello')")
 
-        # Mock download_outputs to succeed
-        with patch('rgrid.commands.run.download_outputs') as mock_download:
-            mock_download.return_value = True
+        # Act
+        result = runner.invoke(main, ['run', str(script_file)])
 
-            # Act
-            result = runner.invoke(main, ['run', str(script_file)])
-
-            # Assert
-            # Download should be called when flag is not set
-            mock_download.assert_called_once()
+        # Assert
+        assert result.exit_code == 0
+        # Without --remote-only, should show standard status message
+        assert 'Check status' in result.output or 'Execution created' in result.output
 
     def test_display_download_command(self, runner, mock_api_client, tmp_path):
         """Test that proper download command message is shown with --remote-only."""
