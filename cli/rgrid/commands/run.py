@@ -6,6 +6,8 @@ from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
 from rgrid.api_client import get_client
+from rgrid.utils.file_detection import detect_file_arguments
+from rgrid.utils.file_upload import upload_file_to_minio
 from rgrid_common.runtimes import resolve_runtime
 
 console = Console()
@@ -57,6 +59,12 @@ def run(script: str, args: tuple[str, ...], runtime: str | None, env: tuple[str,
         key, value = env_var.split("=", 1)
         env_vars[key] = value
 
+    # Detect file arguments (Tier 4 - Story 2-5)
+    file_args, regular_args = detect_file_arguments(list(args))
+
+    # Extract just filenames for API
+    input_files = [Path(file_path).name for file_path in file_args]
+
     # Resolve runtime to Docker image
     resolved_runtime = resolve_runtime(runtime)
 
@@ -67,15 +75,33 @@ def run(script: str, args: tuple[str, ...], runtime: str | None, env: tuple[str,
             TextColumn("[progress.description]{task.description}"),
             console=console,
         ) as progress:
-            progress.add_task(description="Submitting execution...", total=None)
+            task = progress.add_task(description="Submitting execution...", total=None)
 
             client = get_client()
             result = client.create_execution(
                 script_content=script_content,
                 runtime=resolved_runtime,
-                args=list(args),
+                args=list(args),  # Keep original args for now
                 env_vars=env_vars,
+                input_files=input_files,
             )
+
+            # Upload files if any were detected
+            upload_urls = result.get("upload_urls", {})
+            if upload_urls:
+                progress.update(task, description=f"Uploading {len(upload_urls)} file(s)...")
+
+                for file_path in file_args:
+                    filename = Path(file_path).name
+                    presigned_url = upload_urls.get(filename)
+
+                    if presigned_url:
+                        success = upload_file_to_minio(file_path, presigned_url)
+                        if not success:
+                            console.print(f"[yellow]Warning:[/yellow] Failed to upload {filename}")
+                    else:
+                        console.print(f"[yellow]Warning:[/yellow] No upload URL for {filename}")
+
             client.close()
 
         execution_id = result.get("execution_id", "unknown")
@@ -83,6 +109,8 @@ def run(script: str, args: tuple[str, ...], runtime: str | None, env: tuple[str,
 
         console.print(f"\n[green]✓[/green] Execution created: [cyan]{execution_id}[/cyan]")
         console.print(f"[dim]Status:[/dim] {status}")
+        if file_args:
+            console.print(f"[dim]Uploaded files:[/dim] {', '.join(input_files)}")
         console.print(f"\nCheck status: [cyan]rgrid status {execution_id}[/cyan]")
 
     except Exception as e:

@@ -30,6 +30,7 @@ class APIClient:
         runtime: str = "python:3.11",
         args: Optional[list[str]] = None,
         env_vars: Optional[dict[str, str]] = None,
+        input_files: Optional[list[str]] = None,
     ) -> dict[str, Any]:
         """
         Create a new execution.
@@ -39,9 +40,10 @@ class APIClient:
             runtime: Runtime environment
             args: Script arguments
             env_vars: Environment variables
+            input_files: List of input file names (Tier 4 - Story 2-5)
 
         Returns:
-            Execution response
+            Execution response (includes upload_urls if input_files provided)
         """
         response = self.client.post(
             "/api/v1/executions",
@@ -50,6 +52,7 @@ class APIClient:
                 "runtime": runtime,
                 "args": args or [],
                 "env_vars": env_vars or {},
+                "input_files": input_files or [],
             },
         )
         response.raise_for_status()

@@ -42,6 +42,23 @@ def status(execution_id: str) -> None:
             status_display = f"[red]{status_value}[/red]"
         elif status_value == "running":
             status_display = f"[yellow]{status_value}[/yellow]"
+        elif status_value == "queued":
+            # Enhanced feedback for queued status (Story NEW-4)
+            status_display = f"[yellow]{status_value}[/yellow]"
+            # Calculate how long it's been queued
+            created_at = datetime.fromisoformat(result["created_at"].replace('Z', '+00:00'))
+            queued_duration = (datetime.now(created_at.tzinfo) - created_at).total_seconds()
+
+            if queued_duration > 30:
+                # If queued for more than 30 seconds, likely provisioning workers
+                elapsed_min = int(queued_duration // 60)
+                elapsed_sec = int(queued_duration % 60)
+                if elapsed_min > 0:
+                    time_display = f"{elapsed_min}m {elapsed_sec}s"
+                else:
+                    time_display = f"{elapsed_sec}s"
+
+                status_display += f"\n[dim]Provisioning worker... ({time_display} elapsed, ETA ~90s)[/dim]"
         else:
             status_display = status_value
 

@@ -14,6 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.database import init_db, close_db
 from app.storage import minio_client
+from app.ray_service import ray_service
 from app.api.v1.health import router as health_router
 
 # Configure logging
@@ -47,12 +48,26 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     await minio_client.init_bucket()
     logger.info(f"MinIO initialized (bucket: {settings.minio_bucket_name})")
 
+    # Initialize Ray service (Tier 4 - Story 3-3)
+    if settings.ray_enabled:
+        logger.info("Initializing Ray service...")
+        ray_service.initialize()
+        if ray_service.is_initialized():
+            logger.info(f"Ray service initialized (address: {settings.ray_head_address})")
+        else:
+            logger.warning("Ray service failed to initialize - distributed execution disabled")
+
     logger.info("RGrid API started successfully")
 
     yield
 
     # Shutdown
     logger.info("Shutting down RGrid API...")
+
+    # Shutdown Ray service
+    if settings.ray_enabled:
+        ray_service.shutdown()
+
     await close_db()
     logger.info("RGrid API shut down")
 

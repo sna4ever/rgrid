@@ -30,7 +30,10 @@ class ExecutionBase(BaseModel):
 class ExecutionCreate(ExecutionBase):
     """Model for creating a new execution."""
 
-    pass
+    input_files: List[str] = Field(
+        default_factory=list,
+        description="List of input file names to be uploaded to MinIO"
+    )
 
 
 class ExecutionResponse(ExecutionBase):
@@ -45,6 +48,20 @@ class ExecutionResponse(ExecutionBase):
     stderr: Optional[str] = Field(None, description="Standard error from execution")
     output_truncated: bool = Field(default=False, description="Whether output was truncated")
     execution_error: Optional[str] = Field(None, description="Error message if execution failed")
+
+    # File handling (Tier 4 - Story 2-5)
+    input_files: List[str] = Field(
+        default_factory=list,
+        description="List of input file names"
+    )
+    upload_urls: Optional[Dict[str, str]] = Field(
+        None,
+        description="Presigned URLs for uploading input files (filename -> URL)"
+    )
+    download_urls: Optional[Dict[str, str]] = Field(
+        None,
+        description="Presigned URLs for downloading input files (filename -> URL)"
+    )
 
     # Timestamps
     created_at: datetime = Field(..., description="Creation timestamp")

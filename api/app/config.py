@@ -57,6 +57,26 @@ class Settings(BaseSettings):
     # Logging
     log_level: str = Field(default="INFO", description="Log level")
 
+    # Hetzner Cloud Configuration (Tier 4 - Distributed Execution)
+    hetzner_api_token: str | None = Field(
+        default=None,
+        description="Hetzner Cloud API token for worker provisioning"
+    )
+    hetzner_ssh_key_path: str | None = Field(
+        default=None,
+        description="Path to SSH private key for Hetzner workers"
+    )
+
+    # Ray Configuration (Tier 4 - Story 3-3)
+    ray_head_address: str = Field(
+        default="ray://localhost:10001",
+        description="Ray cluster head node address for client connection"
+    )
+    ray_enabled: bool = Field(
+        default=True,
+        description="Enable Ray distributed execution (disable for testing)"
+    )
+
     @property
     def is_development(self) -> bool:
         """Check if running in development mode."""

@@ -28,6 +28,50 @@ services:
     volumes:
       - minio_data:/data
 
+  # Tier 4 - Story 3-1: Ray head node for distributed orchestration
+  ray-head:
+    image: rayproject/ray:2.8.0
+    command: >
+      ray start --head
+      --port=6380
+      --dashboard-host=0.0.0.0
+      --dashboard-port=8265
+      --temp-dir=/tmp/ray
+      --block
+    ports:
+      - "6380:6380"    # Ray cluster coordination (Redis protocol, changed from 6379 to avoid conflict)
+      - "8265:8265"    # Ray dashboard (web UI)
+      - "10001:10001"  # Ray client port
+    environment:
+      RAY_GRAFANA_IFRAME_HOST: "http://localhost:3000"
+      RAY_PROMETHEUS_HOST: "http://localhost:9090"
+    healthcheck:
+      test: ["CMD", "ray", "status"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    tmpfs:
+      - /tmp/ray:mode=1777
+
+  # Tier 4 - Story 3-2: Ray worker for local testing
+  ray-worker:
+    image: rayproject/ray:2.8.0
+    command: >
+      ray start
+      --address=ray-head:6380
+      --num-cpus=2
+      --memory=4294967296
+      --temp-dir=/tmp/ray
+      --block
+    depends_on:
+      ray-head:
+        condition: service_healthy
+    environment:
+      RAY_GRAFANA_IFRAME_HOST: "http://localhost:3000"
+    tmpfs:
+      - /tmp/ray:mode=1777
+
 volumes:
   postgres_data:
   minio_data:

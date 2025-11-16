@@ -1,16 +1,22 @@
 """Execution endpoints."""
 
+import logging
 import secrets
 from datetime import datetime
+from typing import Dict
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.api.v1.auth import verify_api_key
 from app.models.execution import Execution
+from app.storage import minio_client
+from app.ray_service import ray_service
+from app.config import settings
 from rgrid_common.models import ExecutionCreate, ExecutionResponse
 from rgrid_common.types import ExecutionStatus
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
@@ -29,10 +35,26 @@ async def create_execution(
         api_key: Authenticated API key
 
     Returns:
-        Created execution
+        Created execution with presigned upload URLs for input files
     """
     # Generate execution ID
     execution_id = f"exec_{secrets.token_hex(16)}"
+
+    # Generate presigned upload URLs for input files (Tier 4 - Story 2-5)
+    upload_urls: Dict[str, str] = {}
+    download_urls: Dict[str, str] = {}
+
+    for filename in execution.input_files:
+        # Object key: executions/{exec_id}/inputs/{filename}
+        object_key = f"executions/{execution_id}/inputs/{filename}"
+
+        # Generate presigned PUT URL for CLI to upload file
+        upload_url = minio_client.generate_presigned_upload_url(object_key, expiration=3600)
+        upload_urls[filename] = upload_url
+
+        # Also generate presigned GET URL for runner to download file
+        download_url = minio_client.generate_presigned_download_url(object_key, expiration=7200)
+        download_urls[filename] = download_url
 
     # Create database record
     runtime_str = execution.runtime.value if hasattr(execution.runtime, 'value') else execution.runtime
@@ -42,6 +64,7 @@ async def create_execution(
         runtime=runtime_str,
         args=execution.args,
         env_vars=execution.env_vars,
+        input_files=execution.input_files,  # Tier 4 - Story 2-5
         status=ExecutionStatus.QUEUED.value,
         created_at=datetime.utcnow(),
     )
@@ -49,13 +72,33 @@ async def create_execution(
     db.add(db_execution)
     await db.flush()
 
-    # Return response
+    # Submit Ray task if Ray is enabled and initialized (Tier 4 - Story 3-3)
+    ray_task_id: str | None = None
+    if settings.ray_enabled and ray_service.is_initialized():
+        ray_task_id = ray_service.submit_execution_task(
+            execution_id=execution_id,
+            database_url=settings.database_url
+        )
+
+        if ray_task_id:
+            # Update execution record with Ray task ID
+            db_execution.ray_task_id = ray_task_id
+            logger.info(f"Execution {execution_id} submitted to Ray (task: {ray_task_id})")
+        else:
+            logger.warning(f"Failed to submit execution {execution_id} to Ray - will use polling worker")
+
+    await db.commit()
+
+    # Return response with presigned URLs
     return ExecutionResponse(
         execution_id=execution_id,
         script_content=execution.script_content,
         runtime=execution.runtime,
         args=execution.args,
         env_vars=execution.env_vars,
+        input_files=execution.input_files,
+        upload_urls=upload_urls if upload_urls else None,
+        download_urls=download_urls if download_urls else None,
         status=ExecutionStatus.QUEUED,
         created_at=db_execution.created_at,
         started_at=None,

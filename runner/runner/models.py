@@ -27,6 +27,7 @@ class Execution(Base):
     runtime: Mapped[str] = mapped_column(String(50))
     args: Mapped[dict] = mapped_column(JSON, default=list)
     env_vars: Mapped[dict] = mapped_column(JSON, default=dict)
+    input_files: Mapped[dict] = mapped_column(JSON, default=list)  # Tier 4 - Story 2-5
     status: Mapped[str] = mapped_column(String(50), index=True)
     exit_code: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
 
@@ -43,3 +44,7 @@ class Execution(Base):
 
     # Cost tracking
     cost_micros: Mapped[int] = mapped_column(BigInteger, default=0)
+
+    # Ray/worker tracking (Tier 4 - Story 3-3)
+    ray_task_id: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
+    worker_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)

@@ -17,6 +17,7 @@ from sqlalchemy.orm import sessionmaker
 
 from runner.executor import DockerExecutor
 from runner.poller import JobPoller
+from runner.storage import minio_client
 
 # Configure logging
 logging.basicConfig(
@@ -116,12 +117,25 @@ class Worker:
                 )
                 await session.commit()
 
+            # Generate download URLs for input files (Tier 4 - Story 2-5)
+            download_urls = {}
+            input_files = job.input_files or []
+
+            if input_files:
+                for filename in input_files:
+                    object_key = f"executions/{execution_id}/inputs/{filename}"
+                    download_url = minio_client.generate_presigned_download_url(
+                        object_key, expiration=3600
+                    )
+                    download_urls[filename] = download_url
+
             # Execute script using DockerExecutor
             exit_code, stdout, stderr = self.executor.execute_script(
                 script_content=job.script_content,
                 runtime=job.runtime,
                 args=job.args or [],
                 env_vars=job.env_vars or {},
+                download_urls=download_urls if download_urls else None,
             )
 
             # Truncate output if too large

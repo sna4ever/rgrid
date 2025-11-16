@@ -2,9 +2,11 @@
 
 import docker
 from docker.models.containers import Container
-from typing import Optional
+from typing import Optional, Dict
 from pathlib import Path
 import tempfile
+
+from runner.file_handler import download_input_files, map_args_to_container_paths
 
 
 class DockerExecutor:
@@ -23,6 +25,7 @@ class DockerExecutor:
         timeout_seconds: int = 300,
         mem_limit_mb: int = 512,
         cpu_count: float = 1.0,
+        download_urls: Optional[Dict[str, str]] = None,
     ) -> tuple[int, str, str]:
         """
         Execute script in Docker container with resource limits.
@@ -35,20 +38,45 @@ class DockerExecutor:
             timeout_seconds: Maximum execution time (default: 300s / 5min)
             mem_limit_mb: Memory limit in MB (default: 512MB)
             cpu_count: CPU cores to allocate (default: 1.0)
+            download_urls: Presigned URLs for input files (Tier 4 - Story 2-5)
 
         Returns:
             Tuple of (exit_code, stdout, stderr)
         """
         args = args or []
         env_vars = env_vars or {}
+        download_urls = download_urls or {}
 
-        # Create temporary directory for script
+        # Create temporary directory for script and files
         with tempfile.TemporaryDirectory() as tmpdir:
-            script_path = Path(tmpdir) / "script.py"
+            tmpdir_path = Path(tmpdir)
+            script_path = tmpdir_path / "script.py"
             script_path.write_text(script_content)
 
+            # Download input files if any (Tier 4 - Story 2-5)
+            volumes = {str(tmpdir_path): {"bind": "/workspace", "mode": "ro"}}
+
+            if download_urls:
+                # Create /work directory for input files
+                work_dir = tmpdir_path / "work"
+                work_dir.mkdir()
+
+                # Download files to /work
+                downloaded_files = download_input_files(download_urls, work_dir)
+
+                # Get list of input filenames
+                input_filenames = list(downloaded_files.keys())
+
+                # Map arguments to container paths
+                container_args = map_args_to_container_paths(args, input_filenames)
+
+                # Mount /work directory (read-write for input files)
+                volumes[str(work_dir)] = {"bind": "/work", "mode": "rw"}
+            else:
+                container_args = args
+
             # Prepare command
-            cmd = ["python", "/workspace/script.py"] + args
+            cmd = ["python", "/workspace/script.py"] + container_args
 
             # Calculate resource limits
             mem_limit_bytes = mem_limit_mb * 1024 * 1024  # Convert MB to bytes
@@ -60,7 +88,7 @@ class DockerExecutor:
                 container: Container = self.client.containers.run(
                     runtime,
                     command=cmd,
-                    volumes={tmpdir: {"bind": "/workspace", "mode": "ro"}},
+                    volumes=volumes,
                     environment=env_vars,
                     detach=True,
                     remove=False,
