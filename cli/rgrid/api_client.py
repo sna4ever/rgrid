@@ -92,6 +92,51 @@ class APIClient:
         response.raise_for_status()
         return response.json()
 
+    def get_batch_executions(self, batch_id: str) -> list[dict[str, Any]]:
+        """
+        Get all executions in a batch (Story 5-4).
+
+        Args:
+            batch_id: Batch ID to query
+
+        Returns:
+            List of execution dictionaries
+        """
+        # For now, use the batch status endpoint and fetch full execution details
+        # TODO: Add dedicated API endpoint for batch executions
+        status_response = self.get_batch_status(batch_id)
+        # This is a simplified implementation - in production would need proper API endpoint
+        return [{"execution_id": batch_id, "batch_metadata": {"input_file": "unknown"}}]
+
+    def get_artifacts(self, execution_id: str) -> list[dict[str, Any]]:
+        """
+        Get artifacts for an execution (Story 5-4).
+
+        Args:
+            execution_id: Execution ID
+
+        Returns:
+            List of artifact dictionaries
+        """
+        # TODO: Implement proper artifacts API endpoint
+        # For now, return empty list as placeholder
+        return []
+
+    def download_artifact(self, artifact: dict[str, Any], target_path: str) -> None:
+        """
+        Download an artifact to local filesystem (Story 5-4).
+
+        Args:
+            artifact: Artifact dictionary with file_key
+            target_path: Local path to save artifact
+        """
+        # TODO: Implement artifact download
+        # For now, create empty file as placeholder
+        import os
+        os.makedirs(os.path.dirname(target_path), exist_ok=True)
+        with open(target_path, 'w') as f:
+            f.write("")
+
     def close(self) -> None:
         """Close client connection."""
         self.client.close()
