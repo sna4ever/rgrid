@@ -1,18 +1,11 @@
 """Status command for checking execution status."""
 
 import click
-import sys
-from pathlib import Path
 from rich.console import Console
 from rich.table import Table
 from datetime import datetime
 
 from rgrid.api_client import get_client
-
-# Import structured error handling (Story 10-4)
-sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent / "api"))
-from api.errors import ResourceNotFoundError, NetworkError
-from rgrid.errors import display_error
 
 console = Console()
 
@@ -112,31 +105,7 @@ def status(execution_id: str) -> None:
             console.print(f"\n[dim]View output with:[/dim] rgrid logs {execution_id}\n")
 
     except Exception as e:
-        # Use structured error handling (Story 10-4)
-        error_msg = str(e).lower()
-
-        if "not found" in error_msg or "404" in error_msg:
-            error = ResourceNotFoundError(
-                "Execution not found",
-                context={
-                    "execution_id": execution_id,
-                    "hint": "Use 'rgrid list' to see available executions"
-                }
-            )
-            display_error(error)
-        elif "connection" in error_msg or "network" in error_msg:
-            error = NetworkError(
-                "Failed to connect to API",
-                context={
-                    "execution_id": execution_id,
-                    "error": str(e)
-                }
-            )
-            display_error(error)
-        else:
-            # Generic error display
-            console.print(f"[red]Error:[/red] {str(e)}")
-
+        console.print(f"[red]Error:[/red] {str(e)}")
         raise click.Abort()
 
 

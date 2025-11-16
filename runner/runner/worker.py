@@ -8,6 +8,8 @@ import asyncio
 import logging
 import signal
 import sys
+import uuid
+import socket
 from datetime import datetime
 from typing import Optional
 
@@ -18,6 +20,7 @@ from sqlalchemy.orm import sessionmaker
 from runner.executor import DockerExecutor
 from runner.poller import JobPoller
 from runner.storage import minio_client
+from runner.heartbeat import HeartbeatManager
 
 # Configure logging
 logging.basicConfig(
@@ -40,6 +43,7 @@ class Worker:
         database_url: str,
         poll_interval: int = 5,
         max_concurrent: int = 2,
+        worker_id: Optional[str] = None,
     ):
         """
         Initialize worker.
@@ -48,12 +52,17 @@ class Worker:
             database_url: PostgreSQL connection string
             poll_interval: Seconds between polls
             max_concurrent: Maximum concurrent executions
+            worker_id: Unique worker ID (auto-generated if not provided)
         """
         self.database_url = database_url
         self.poll_interval = poll_interval
         self.max_concurrent = max_concurrent
         self.running = False
         self.active_tasks = set()
+
+        # Generate worker ID if not provided
+        self.worker_id = worker_id or f"worker-{uuid.uuid4().hex[:8]}"
+        self.hostname = socket.gethostname()
 
         # Create async engine
         self.engine = create_async_engine(database_url, echo=False)
@@ -67,14 +76,28 @@ class Worker:
         # Job poller
         self.poller = JobPoller(self.async_session_maker)
 
+        # Heartbeat manager (Story NEW-7)
+        self.heartbeat_manager = HeartbeatManager(
+            worker_id=self.worker_id,
+            hostname=self.hostname,
+            interval=30,
+        )
+        self.heartbeat_task = None
+
     async def start(self):
         """Start the worker daemon."""
-        logger.info(f"Starting RGrid worker (max_concurrent={self.max_concurrent})")
+        logger.info(f"Starting RGrid worker {self.worker_id} (max_concurrent={self.max_concurrent})")
         self.running = True
 
         # Register signal handlers
         signal.signal(signal.SIGTERM, self._signal_handler)
         signal.signal(signal.SIGINT, self._signal_handler)
+
+        # Start heartbeat loop (Story NEW-7)
+        self.heartbeat_task = asyncio.create_task(
+            self.heartbeat_manager.start_heartbeat_loop(self.async_session_maker)
+        )
+        logger.info(f"Heartbeat loop started for {self.worker_id}")
 
         try:
             while self.running:
@@ -190,6 +213,16 @@ class Worker:
         """Gracefully shutdown worker."""
         logger.info("Shutting down worker...")
         self.running = False
+
+        # Stop heartbeat loop (Story NEW-7)
+        if self.heartbeat_task:
+            logger.info("Stopping heartbeat loop...")
+            self.heartbeat_manager.stop_heartbeat_loop()
+            try:
+                await asyncio.wait_for(self.heartbeat_task, timeout=5.0)
+            except asyncio.TimeoutError:
+                logger.warning("Heartbeat task did not stop cleanly")
+                self.heartbeat_task.cancel()
 
         # Wait for active tasks to complete
         if self.active_tasks:
