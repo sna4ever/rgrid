@@ -271,8 +271,8 @@ You told the internet: "When someone types staging.rgrid.dev, send them to this 
 
    # Save: Ctrl+O, Enter, Ctrl+X
 
-   # Restart SSH service
-   systemctl restart sshd
+   # Restart SSH service (Ubuntu uses 'ssh' not 'sshd')
+   systemctl restart ssh
    ```
 
    **What did we do?** Disabled root login and password login. Now only your SSH key can access the server. Much more secure!
