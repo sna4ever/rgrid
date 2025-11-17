@@ -14,7 +14,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.database import init_db, close_db
 from app.storage import minio_client
-from app.ray_service import ray_service
+
+# Conditional import for Ray (Tier 4+)
+ray_service = None
+if settings.ray_enabled:
+    try:
+        from app.ray_service import ray_service
+    except ImportError:
+        logger = logging.getLogger(__name__)
+        logger.warning("Ray not installed - distributed execution disabled")
+
 from app.api.v1.health import router as health_router
 
 # Configure logging
@@ -49,7 +58,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info(f"MinIO initialized (bucket: {settings.minio_bucket_name})")
 
     # Initialize Ray service (Tier 4 - Story 3-3)
-    if settings.ray_enabled:
+    if settings.ray_enabled and ray_service is not None:
         logger.info("Initializing Ray service...")
         ray_service.initialize()
         if ray_service.is_initialized():
@@ -65,7 +74,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info("Shutting down RGrid API...")
 
     # Shutdown Ray service
-    if settings.ray_enabled:
+    if settings.ray_enabled and ray_service is not None:
         ray_service.shutdown()
 
     await close_db()

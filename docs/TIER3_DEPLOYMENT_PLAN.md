@@ -382,6 +382,10 @@ You told the internet: "When someone types staging.rgrid.dev, send them to this 
    echo "PRODUCTION_MINIO_ACCESS=$(openssl rand -hex 16)" >> credentials.txt
    echo "PRODUCTION_MINIO_SECRET=$(openssl rand -hex 32)" >> credentials.txt
 
+   # Generate API secret keys (for JWT/session signing)
+   echo "STAGING_API_SECRET_KEY=$(openssl rand -hex 32)" >> credentials.txt
+   echo "PRODUCTION_API_SECRET_KEY=$(openssl rand -hex 32)" >> credentials.txt
+
    # Display credentials
    cat credentials.txt
    # SAVE THESE! You'll need them in the next step.
@@ -394,20 +398,33 @@ You told the internet: "When someone types staging.rgrid.dev, send them to this 
 # RGrid Staging Environment
 # DO NOT COMMIT TO GIT!
 
-# Database
-DATABASE_URL=postgresql://rgrid_staging:<STAGING_DB_PASSWORD>@localhost:5433/rgrid_staging
+# Database (IMPORTANT: Use postgresql+asyncpg:// for async driver support)
+DATABASE_URL=postgresql+asyncpg://rgrid_staging:<STAGING_DB_PASSWORD>@localhost:5433/rgrid_staging
+
+# Docker Compose variables (for docker-compose --env-file)
+STAGING_DB_PASSWORD=<STAGING_DB_PASSWORD>
+STAGING_MINIO_ACCESS=<STAGING_MINIO_ACCESS>
+STAGING_MINIO_SECRET=<STAGING_MINIO_SECRET>
 
 # MinIO
 MINIO_ENDPOINT=localhost:9001
 MINIO_ACCESS_KEY=<STAGING_MINIO_ACCESS>
 MINIO_SECRET_KEY=<STAGING_MINIO_SECRET>
-MINIO_BUCKET=rgrid-staging
+MINIO_BUCKET_NAME=rgrid-staging
 MINIO_SECURE=false
 
-# API
+# API Security
+API_SECRET_KEY=<GENERATE_WITH_OPENSSL>
+
+# API Config
 API_HOST=0.0.0.0
 API_PORT=8001
 API_ENV=staging
+LOG_LEVEL=info
+IS_DEVELOPMENT=true
+
+# Ray (Tier 4+ distributed execution - disabled for Tier 3)
+RAY_ENABLED=false
 
 # Execution Settings
 EXECUTION_TIMEOUT=300
@@ -426,20 +443,33 @@ EOF
 # RGrid Production Environment
 # DO NOT COMMIT TO GIT!
 
-# Database
-DATABASE_URL=postgresql://rgrid_production:<PRODUCTION_DB_PASSWORD>@localhost:5432/rgrid_production
+# Database (IMPORTANT: Use postgresql+asyncpg:// for async driver support)
+DATABASE_URL=postgresql+asyncpg://rgrid_production:<PRODUCTION_DB_PASSWORD>@localhost:5432/rgrid_production
+
+# Docker Compose variables (for docker-compose --env-file)
+PRODUCTION_DB_PASSWORD=<PRODUCTION_DB_PASSWORD>
+PRODUCTION_MINIO_ACCESS=<PRODUCTION_MINIO_ACCESS>
+PRODUCTION_MINIO_SECRET=<PRODUCTION_MINIO_SECRET>
 
 # MinIO
 MINIO_ENDPOINT=localhost:9000
 MINIO_ACCESS_KEY=<PRODUCTION_MINIO_ACCESS>
 MINIO_SECRET_KEY=<PRODUCTION_MINIO_SECRET>
-MINIO_BUCKET=rgrid-production
+MINIO_BUCKET_NAME=rgrid-production
 MINIO_SECURE=false
 
-# API
+# API Security (CRITICAL: Use strong secret for production)
+API_SECRET_KEY=<GENERATE_WITH_OPENSSL>
+
+# API Config
 API_HOST=0.0.0.0
 API_PORT=8000
 API_ENV=production
+LOG_LEVEL=warning
+IS_DEVELOPMENT=false
+
+# Ray (Tier 4+ distributed execution - disabled for Tier 3)
+RAY_ENABLED=false
 
 # Execution Settings
 EXECUTION_TIMEOUT=300
@@ -454,13 +484,18 @@ EOF
 5. **Replace placeholders with actual passwords**
    ```bash
    # Open staging.env and replace:
-   # <STAGING_DB_PASSWORD> with value from credentials.txt
-   # <STAGING_MINIO_ACCESS> with value from credentials.txt
-   # <STAGING_MINIO_SECRET> with value from credentials.txt
+   # <STAGING_DB_PASSWORD> with value from credentials.txt (appears 2 times)
+   # <STAGING_MINIO_ACCESS> with value from credentials.txt (appears 2 times)
+   # <STAGING_MINIO_SECRET> with value from credentials.txt (appears 2 times)
+   # <GENERATE_WITH_OPENSSL> with STAGING_API_SECRET_KEY from credentials.txt
    nano staging.env
    # Ctrl+X, Y, Enter to save
 
    # Same for production.env
+   # <PRODUCTION_DB_PASSWORD> with value from credentials.txt (appears 2 times)
+   # <PRODUCTION_MINIO_ACCESS> with value from credentials.txt (appears 2 times)
+   # <PRODUCTION_MINIO_SECRET> with value from credentials.txt (appears 2 times)
+   # <GENERATE_WITH_OPENSSL> with PRODUCTION_API_SECRET_KEY from credentials.txt
    nano production.env
    # Ctrl+X, Y, Enter to save
    ```
@@ -545,11 +580,46 @@ Create a file called `deploy-rgrid.md` and give it to a BMAD agent:
 ## Task
 Deploy both staging and production environments to the VPS. Follow all steps sequentially.
 
+## Port Assignments Reference
+
+**CRITICAL: Port assignments to avoid conflicts**
+
+| Service | Port | Access | Notes |
+|---------|------|--------|-------|
+| **Production API** | 8000 | localhost only | Exposed via NGINX (api.rgrid.dev) |
+| **Staging API** | 8001 | localhost only | Exposed via NGINX (staging.rgrid.dev) |
+| **Postgres Production** | 5432 | localhost only | Standard PostgreSQL port |
+| **Postgres Staging** | 5433 | localhost only | Non-standard to avoid conflict |
+| **MinIO Production** | 9000 | localhost only | S3 API endpoint |
+| **MinIO Production Console** | 9090 | localhost only | Web GUI |
+| **MinIO Staging** | 9001 | localhost only | S3 API endpoint |
+| **MinIO Staging Console** | 9091 | localhost only | Web GUI |
+| **Portainer** | 9443 | localhost only | HTTPS web interface, exposed via NGINX |
+| **NGINX HTTP** | 80 | public | Redirects to HTTPS |
+| **NGINX HTTPS** | 443 | public | SSL/TLS traffic |
+
+**Port Conflict Resolution:**
+- ⚠️ Portainer originally used ports 9443 AND 8000
+- ❌ Port 8000 conflict with Production API
+- ✅ Fixed: Portainer now only uses port 9443
+- ✅ Production API successfully running on port 8000
+
 ## Deployment Steps
 
 ### 1. Install Base Dependencies
 
-[VPS] Connect and install Docker, Docker Compose, Python 3.11:
+**IMPORTANT: Configure passwordless sudo first:**
+
+[VPS] If not already configured:
+```bash
+ssh deploy@<YOUR_VPS_IP>
+
+# Configure passwordless sudo for deploy user
+echo 'deploy ALL=(ALL) NOPASSWD:ALL' | sudo tee /etc/sudoers.d/deploy
+sudo chmod 0440 /etc/sudoers.d/deploy
+```
+
+[VPS] Connect and install Docker, Docker Compose, Python:
 
 ```bash
 ssh deploy@<YOUR_VPS_IP>
@@ -566,8 +636,9 @@ rm get-docker.sh
 # Install Docker Compose
 sudo apt install docker-compose -y
 
-# Install Python 3.11 and venv
-sudo apt install python3.11 python3.11-venv python3-pip git -y
+# Install Python 3.12 (Ubuntu 24.04 default), venv, and git
+# Note: Python 3.11 not available in Ubuntu 24.04, using 3.12 (fully compatible)
+sudo apt install python3.12 python3.12-venv python3-pip git -y
 
 # Install PostgreSQL client (for testing)
 sudo apt install postgresql-client -y
@@ -593,9 +664,9 @@ ssh deploy@<YOUR_VPS_IP>
 docker volume create portainer_data
 
 # Run Portainer container
+# NOTE: Only expose port 9443 to avoid conflict with production API on port 8000
 docker run -d \
   -p 9443:9443 \
-  -p 8000:8000 \
   --name portainer \
   --restart=always \
   -v /var/run/docker.sock:/var/run/docker.sock \
@@ -605,6 +676,11 @@ docker run -d \
 # Verify Portainer is running
 docker ps | grep portainer
 ```
+
+**Port Assignment Note:**
+- Portainer: **9443** (HTTPS web interface)
+- Production API: **8000** (do NOT use 8000 for Portainer - conflicts!)
+- Staging API: **8001**
 
 **What is Portainer?**
 A web-based GUI for Docker that makes it easy to:
@@ -649,14 +725,53 @@ We'll configure this later with NGINX after setting up domains. This gives you `
 
 ### 2. Clone Repository
 
-[VPS] Clone the RGrid repository:
+**For private repositories, use GitHub Deploy Keys:**
+
+[VPS] Set up SSH deploy key first:
 
 ```bash
+# Generate ED25519 SSH key for GitHub deploy access
+ssh-keygen -t ed25519 -C 'rgrid-vps-deploy' -f ~/.ssh/github_deploy_key -N ''
+
+# Display public key
+cat ~/.ssh/github_deploy_key.pub
+# Copy this entire output
+```
+
+[LOCAL] Add deploy key to GitHub:
+1. Go to: https://github.com/sna4ever/rgrid/settings/keys
+2. Click "Add deploy key"
+3. Title: `rgrid-vps-deploy`
+4. Paste the public key
+5. **Leave "Allow write access" unchecked** (read-only for security)
+6. Click "Add key"
+
+[VPS] Configure SSH and clone:
+
+```bash
+# Configure SSH to use deploy key for GitHub
+cat >> ~/.ssh/config <<'EOF'
+Host github.com
+    HostName github.com
+    User git
+    IdentityFile ~/.ssh/github_deploy_key
+    StrictHostKeyChecking no
+EOF
+
+chmod 600 ~/.ssh/config
+
+# Clone repository using SSH (not HTTPS)
 cd ~
-git clone https://github.com/sna4ever/rgrid.git
+git clone git@github.com:sna4ever/rgrid.git
 cd rgrid
 git checkout main
 ```
+
+**Why Deploy Keys?**
+- More secure than personal access tokens
+- Read-only access prevents accidental pushes
+- Scoped to single repository
+- Can be revoked without affecting other repos
 
 ### 3. Set Up Docker Networks
 
@@ -802,8 +917,8 @@ docker ps | grep production
 ```bash
 cd ~/rgrid
 
-# Create virtual environment
-python3.11 -m venv venv
+# Create virtual environment (using Python 3.12 on Ubuntu 24.04)
+python3.12 -m venv venv
 
 # Activate it
 source venv/bin/activate
@@ -817,11 +932,89 @@ pip install -r runner/requirements.txt
 
 # Install CLI dependencies
 pip install -r cli/requirements.txt
+
+# Install additional dependencies for production
+# psycopg2-binary: Required for Alembic migrations (uses sync driver)
+pip install psycopg2-binary
+
+# Ray: Install but keep disabled via RAY_ENABLED=false (Tier 4+ feature)
+# Installing now avoids import errors and simplifies future Tier 4 upgrade
+pip install 'ray[default]'
 ```
+
+**Why these extra dependencies?**
+- `psycopg2-binary`: Alembic migrations use synchronous PostgreSQL driver (not asyncpg)
+- `ray[default]`: Installed but disabled (RAY_ENABLED=false) for future Tier 4+ distributed execution
 
 ### 7. Run Database Migrations
 
-[VPS] Apply Alembic migrations for both environments:
+**CRITICAL: Initial Migrations Setup**
+
+Before running migrations, verify that `api/alembic/env.py` imports ALL models. If migrations fail or create empty schema, you need to rebuild them.
+
+[VPS] First, check that all models are imported in env.py:
+
+```bash
+cd ~/rgrid/api
+cat alembic/env.py | grep "from app.models"
+```
+
+**You should see 6 imports:**
+```python
+from app.models.execution import Execution
+from app.models.api_key import APIKey
+from app.models.artifact import Artifact
+from app.models.worker import Worker
+from app.models.dependency_cache import DependencyCache
+from app.models.combined_cache import CombinedCache
+```
+
+**If missing models, fix env.py:**
+
+```bash
+# Edit env.py to add missing imports (around line 20)
+nano alembic/env.py
+
+# Add ALL model imports (not just 2):
+# from app.models.execution import Execution  # noqa: F401
+# from app.models.api_key import APIKey  # noqa: F401
+# from app.models.artifact import Artifact  # noqa: F401
+# from app.models.worker import Worker  # noqa: F401
+# from app.models.dependency_cache import DependencyCache  # noqa: F401
+# from app.models.combined_cache import CombinedCache  # noqa: F401
+```
+
+**If existing migrations are broken, rebuild from scratch:**
+
+```bash
+cd ~/rgrid/api
+source ~/rgrid/venv/bin/activate
+
+# Backup existing migrations
+mv alembic/versions alembic/versions.backup
+
+# Create new versions directory
+mkdir alembic/versions
+
+# Generate fresh initial migration with ALL tables
+export $(cat ~/staging.env | xargs)
+alembic revision --autogenerate -m "Initial schema with all tables"
+
+# Review the generated migration
+ls -la alembic/versions/
+cat alembic/versions/*.py
+
+# Should see CREATE TABLE statements for all 7 tables:
+# - api_keys
+# - combined_cache
+# - dependency_cache
+# - executions
+# - worker_heartbeats
+# - workers
+# - artifacts
+```
+
+[VPS] Apply migrations to both environments:
 
 ```bash
 # Staging migrations
@@ -830,12 +1023,28 @@ source ~/rgrid/venv/bin/activate
 export $(cat ~/staging.env | xargs)
 alembic upgrade head
 
+# Verify staging schema
+psql $DATABASE_URL -c "\dt"
+# Should list all 7 tables
+
 # Production migrations
 export $(cat ~/production.env | xargs)
 alembic upgrade head
 
+# Verify production schema
+psql $DATABASE_URL -c "\dt"
+# Should list all 7 tables
+
 cd ~
 ```
+
+**Common Migration Pitfalls:**
+- ❌ env.py only imports 2 models → Empty migration generated
+- ❌ Using wrong DATABASE_URL format (postgresql:// instead of postgresql+asyncpg://)
+- ❌ Missing psycopg2-binary → Alembic fails (Alembic uses sync driver)
+- ✅ All 6 models imported in env.py
+- ✅ Fresh migration autogenerated creates all tables
+- ✅ Both staging and production have identical schema
 
 ### 8. Create MinIO Buckets
 
@@ -847,13 +1056,20 @@ wget https://dl.min.io/client/mc/release/linux-amd64/mc
 chmod +x mc
 sudo mv mc /usr/local/bin/
 
+# Load staging environment variables
+source ~/rgrid/venv/bin/activate
+export $(cat ~/rgrid/.env.staging | grep -v '^#' | xargs)
+
 # Configure staging MinIO
-mc alias set staging http://localhost:9001 ${STAGING_MINIO_ACCESS} ${STAGING_MINIO_SECRET}
+mc alias set staging http://localhost:9001 ${MINIO_ACCESS_KEY} ${MINIO_SECRET_KEY}
 mc mb staging/rgrid-staging
 mc anonymous set download staging/rgrid-staging
 
+# Load production environment variables
+export $(cat ~/rgrid/.env.production | grep -v '^#' | xargs)
+
 # Configure production MinIO
-mc alias set production http://localhost:9000 ${PRODUCTION_MINIO_ACCESS} ${PRODUCTION_MINIO_SECRET}
+mc alias set production http://localhost:9000 ${MINIO_ACCESS_KEY} ${MINIO_SECRET_KEY}
 mc mb production/rgrid-production
 mc anonymous set download production/rgrid-production
 
@@ -862,11 +1078,21 @@ mc ls staging
 mc ls production
 ```
 
+**What are we doing?**
+- Creating S3-compatible storage buckets for each environment
+- `rgrid-staging`: Stores test execution artifacts
+- `rgrid-production`: Stores real execution artifacts
+- Anonymous download: Allows public read access to artifacts (write is still protected)
+
 ### 9. Deploy API Services (Systemd)
 
 [VPS] Create systemd services for both APIs:
 
 ```bash
+# Move environment files to rgrid directory (needed for systemd services)
+mv ~/staging.env ~/rgrid/.env.staging
+mv ~/production.env ~/rgrid/.env.production
+
 # Staging API service
 sudo tee /etc/systemd/system/rgrid-api-staging.service > /dev/null <<'EOF'
 [Unit]
@@ -877,8 +1103,8 @@ After=network.target docker.service
 Type=simple
 User=deploy
 WorkingDirectory=/home/deploy/rgrid/api
-EnvironmentFile=/home/deploy/staging.env
-ExecStart=/home/deploy/rgrid/venv/bin/uvicorn api.main:app --host 0.0.0.0 --port 8001
+EnvironmentFile=/home/deploy/rgrid/.env.staging
+ExecStart=/home/deploy/rgrid/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8001
 Restart=always
 RestartSec=10
 
@@ -896,8 +1122,8 @@ After=network.target docker.service
 Type=simple
 User=deploy
 WorkingDirectory=/home/deploy/rgrid/api
-EnvironmentFile=/home/deploy/production.env
-ExecStart=/home/deploy/rgrid/venv/bin/python -m uvicorn api.main:app --host 0.0.0.0 --port 8000
+EnvironmentFile=/home/deploy/rgrid/.env.production
+ExecStart=/home/deploy/rgrid/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000
 Restart=always
 RestartSec=10
 
@@ -921,6 +1147,13 @@ sudo systemctl status rgrid-api-staging
 sudo systemctl status rgrid-api-production
 ```
 
+**Port Assignment:**
+- **Staging API**: Port **8001** (localhost + NGINX proxy)
+- **Production API**: Port **8000** (localhost + NGINX proxy)
+- **Portainer**: Port **9443** (direct HTTPS)
+
+**Note**: Both services use `app.main:app` (not `api.main:app`) since WorkingDirectory is already set to `/home/deploy/rgrid/api`.
+
 ### 10. Deploy Runner Services (Systemd)
 
 [VPS] Create systemd services for both runners:
@@ -936,7 +1169,7 @@ After=network.target docker.service
 Type=simple
 User=deploy
 WorkingDirectory=/home/deploy/rgrid/runner
-EnvironmentFile=/home/deploy/staging.env
+EnvironmentFile=/home/deploy/rgrid/.env.staging
 ExecStart=/home/deploy/rgrid/venv/bin/python -m runner.worker
 Restart=always
 RestartSec=10
@@ -955,7 +1188,7 @@ After=network.target docker.service
 Type=simple
 User=deploy
 WorkingDirectory=/home/deploy/rgrid/runner
-EnvironmentFile=/home/deploy/production.env
+EnvironmentFile=/home/deploy/rgrid/.env.production
 ExecStart=/home/deploy/rgrid/venv/bin/python -m runner.worker
 Restart=always
 RestartSec=10
@@ -1062,20 +1295,36 @@ sudo systemctl reload nginx
 # Install Certbot
 sudo apt install certbot python3-certbot-nginx -y
 
-# Get certificate for staging
-sudo certbot --nginx -d staging.rgrid.dev --non-interactive --agree-tos -m your-email@example.com
+# Get certificates for ALL three domains at once
+# Replace your-email@example.com with your actual email
+sudo certbot --nginx \
+  -d staging.rgrid.dev \
+  -d api.rgrid.dev \
+  -d portainer.rgrid.dev \
+  --non-interactive \
+  --agree-tos \
+  -m your-email@example.com
 
-# Get certificate for production
-sudo certbot --nginx -d api.rgrid.dev --non-interactive --agree-tos -m your-email@example.com
+# Certbot will:
+# 1. Obtain SSL certificates from Let's Encrypt
+# 2. Automatically configure NGINX for HTTPS (port 443)
+# 3. Set up HTTP -> HTTPS redirects (port 80 -> 443)
+# 4. Configure automatic renewal (certificates expire every 90 days)
 
-# Get certificate for Portainer (optional - if you want permanent web access)
-sudo certbot --nginx -d portainer.rgrid.dev --non-interactive --agree-tos -m your-email@example.com
+# Verify SSL certificates
+sudo certbot certificates
 
-# Certbot will automatically configure NGINX for HTTPS
-# Certificates auto-renew every 90 days
-
-# Note: You'll need to add portainer.rgrid.dev to NameSilo DNS (same IP as other subdomains)
+# Test automatic renewal
+sudo certbot renew --dry-run
 ```
+
+**What just happened?**
+- All three domains now have valid SSL certificates
+- HTTP traffic (port 80) automatically redirects to HTTPS (port 443)
+- Certificates will auto-renew via systemd timer
+- Certificate expiry: ~90 days (renewal happens at 30 days)
+
+**Note**: Ensure all three subdomains (staging.rgrid.dev, api.rgrid.dev, portainer.rgrid.dev) point to your VPS IP in DNS before running certbot.
 
 ### 13. Verify Deployment
 
@@ -1706,5 +1955,286 @@ Once all tests pass:
 5. **Consider production launch** - When ready for real users
 
 ---
+
+**You now have a production-ready RGrid deployment running both staging and production on a single VPS!** 🎉
+
+---
+
+## 📝 Actual Deployment Notes (Lessons Learned)
+
+This section documents the actual deployment performed on 2025-11-17, including all issues encountered and solutions implemented.
+
+### Key Deployment Facts
+
+**Server Details:**
+- VPS IP: 46.62.246.120
+- OS: Ubuntu 24.04 LTS
+- Python: 3.12.3 (not 3.11 - Ubuntu 24.04 default)
+- User: deploy (with passwordless sudo)
+
+**Domains Configured:**
+- Staging: https://staging.rgrid.dev
+- Production: https://api.rgrid.dev
+- Portainer: https://portainer.rgrid.dev
+
+**SSL Certificate:**
+- Provider: Let's Encrypt
+- Expires: 2026-02-15
+- Auto-renewal: Enabled via systemd timer
+
+### Critical Issues & Solutions
+
+#### 1. GitHub Private Repository Access
+
+**Issue:** Initial attempt to clone via HTTPS failed with authentication error.
+
+**Solution:** Implemented GitHub Deploy Keys (SSH-based authentication)
+```bash
+ssh-keygen -t ed25519 -C 'rgrid-vps-deploy' -f ~/.ssh/github_deploy_key -N ''
+# Added public key to GitHub repo settings as deploy key (read-only)
+git clone git@github.com:sna4ever/rgrid.git
+```
+
+**Why this matters:** More secure than personal access tokens, scoped to single repository.
+
+---
+
+#### 2. Database Migrations Generated Empty Schema
+
+**Issue:** Initial migration file only had `pass` statements - no tables created.
+
+**Root Cause:** `api/alembic/env.py` only imported 2 models (Execution, APIKey) instead of all 6.
+
+**Solution:** Complete migration rebuild
+1. Fixed env.py to import ALL 6 models:
+   - Execution
+   - APIKey
+   - Artifact
+   - Worker
+   - DependencyCache
+   - CombinedCache
+
+2. Backed up broken migrations: `mv alembic/versions alembic/versions.backup`
+
+3. Generated fresh initial migration: `alembic revision --autogenerate -m "Initial schema with all tables"`
+
+4. Result: Perfect migration with all 7 tables (including junction table `worker_heartbeats`)
+
+**Database Schema Verified:**
+```
+api_keys
+artifacts
+combined_cache
+dependency_cache
+executions
+worker_heartbeats
+workers
+```
+
+**Lesson:** Always verify env.py imports ALL models before generating migrations.
+
+---
+
+#### 3. Missing Environment Variables
+
+**Issue:** API startup failed with validation errors for missing required variables.
+
+**Missing Variables:**
+- `API_SECRET_KEY` - Required for session/JWT signing
+- `RAY_ENABLED` - Feature flag for Tier 4+ distributed execution
+- `MINIO_BUCKET_NAME` - Was named `MINIO_BUCKET` in old config
+- Docker Compose prefixed variables: `STAGING_DB_PASSWORD`, `STAGING_MINIO_ACCESS`, etc.
+
+**Solution:** Updated both `.env.staging` and `.env.production` with:
+```bash
+API_SECRET_KEY=$(openssl rand -hex 32)
+RAY_ENABLED=false
+MINIO_BUCKET_NAME=rgrid-staging  # (or rgrid-production)
+STAGING_DB_PASSWORD=<value>  # For docker-compose --env-file
+```
+
+---
+
+#### 4. Wrong Database Driver in DATABASE_URL
+
+**Issue:** FastAPI startup error: "asyncio extension requires an async driver"
+
+**Root Cause:** DATABASE_URL used `postgresql://` which defaults to psycopg2 (synchronous driver), but FastAPI uses async SQLAlchemy.
+
+**Solution:** Changed DATABASE_URL format:
+```bash
+# Before (wrong)
+DATABASE_URL=postgresql://rgrid_staging:password@localhost:5433/rgrid_staging
+
+# After (correct)
+DATABASE_URL=postgresql+asyncpg://rgrid_staging:password@localhost:5433/rgrid_staging
+```
+
+**Additional Dependency:** Installed `psycopg2-binary` for Alembic (which uses sync driver for migrations).
+
+**Why both drivers?**
+- `asyncpg` → FastAPI application (async)
+- `psycopg2` → Alembic migrations (sync)
+
+---
+
+#### 5. Ray Import Errors (Tier 4 Feature)
+
+**Issue:** `ModuleNotFoundError: No module named 'ray'` on API startup
+
+**Initial Solution Attempt:** Made Ray imports conditional in `api/app/main.py`
+
+**Final Solution:** Installed Ray with disabled flag
+```bash
+pip install 'ray[default]'
+# Set in .env files: RAY_ENABLED=false
+```
+
+**Why install if disabled?** Simpler than conditional imports everywhere, ready for future Tier 4 upgrade.
+
+---
+
+#### 6. Port 8000 Conflict (Portainer vs Production API)
+
+**Issue:** Production API failed to start - port 8000 already in use by Portainer
+
+**Root Cause:** Portainer container was exposed on BOTH ports 9443 and 8000
+
+**Solution:** Restarted Portainer with only port 9443
+```bash
+docker rm -f portainer
+docker run -d -p 9443:9443 --name portainer --restart=always \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v portainer_data:/data portainer/portainer-ce:latest
+```
+
+**Port Assignments (Final):**
+- Portainer: 9443 only
+- Production API: 8000
+- Staging API: 8001
+
+---
+
+#### 7. Systemd Service ExecStart Path Issues
+
+**Issue:** Initial systemd service files used wrong module path (`api.main:app` instead of `app.main:app`)
+
+**Root Cause:** WorkingDirectory already set to `/home/deploy/rgrid/api`, so module path is relative to that.
+
+**Solution:** Updated all service files to use `app.main:app`
+```ini
+WorkingDirectory=/home/deploy/rgrid/api
+ExecStart=/home/deploy/rgrid/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8001
+```
+
+---
+
+#### 8. Passwordless Sudo Required
+
+**Issue:** Automated deployment failed when sudo commands required password prompts
+
+**Solution:** Configured passwordless sudo for deploy user
+```bash
+echo 'deploy ALL=(ALL) NOPASSWD:ALL' | sudo tee /etc/sudoers.d/deploy
+sudo chmod 0440 /etc/sudoers.d/deploy
+```
+
+**Security Note:** Only appropriate for dedicated deployment user on VPS. Do not use on shared systems.
+
+---
+
+### Deployment Timeline (Actual)
+
+**Total Time:** ~2 hours (including troubleshooting and rebuilding migrations)
+
+1. Base dependencies installation: 10 minutes
+2. Portainer setup: 5 minutes
+3. GitHub deploy key setup: 10 minutes
+4. Docker networks and infrastructure: 10 minutes
+5. Python environment and dependencies: 15 minutes
+6. **Database migrations (with rebuild): 45 minutes** ← Most time spent here
+7. MinIO bucket creation: 5 minutes
+8. Systemd services deployment: 15 minutes
+9. NGINX configuration: 10 minutes
+10. SSL certificate installation: 5 minutes
+11. Final verification: 10 minutes
+
+---
+
+### Final Verification Results
+
+**All Services Running:**
+```bash
+# Docker containers (5)
+portainer              Up 13 minutes
+postgres-production    Up About an hour
+minio-production       Up About an hour
+postgres-staging       Up About an hour
+minio-staging          Up About an hour
+
+# Systemd services (4)
+rgrid-api-staging      active (running)
+rgrid-api-production   active (running)
+rgrid-runner-staging   active (running)
+rgrid-runner-production active (running)
+```
+
+**HTTPS Endpoints Verified:**
+- ✅ https://staging.rgrid.dev/ → {"message":"RGrid API","version":"0.1.0"}
+- ✅ https://staging.rgrid.dev/api/v1/health → {"status":"ok (db: connected)"}
+- ✅ https://api.rgrid.dev/ → {"message":"RGrid API","version":"0.1.0"}
+- ✅ https://api.rgrid.dev/api/v1/health → {"status":"ok (db: connected)"}
+- ✅ https://portainer.rgrid.dev/ → 307 Redirect (Portainer GUI working)
+
+**Database Schema:**
+- Staging: 7 tables, migration version `19561c64e91c`
+- Production: 7 tables, migration version `19561c64e91c`
+- Both environments identical ✅
+
+---
+
+### Key Takeaways for Future Deployments
+
+1. **Always verify alembic/env.py imports ALL models** before generating initial migrations
+2. **Use GitHub Deploy Keys** for private repositories (more secure than tokens)
+3. **Use postgresql+asyncpg://** in DATABASE_URL for async FastAPI applications
+4. **Install both asyncpg AND psycopg2-binary** (app uses async, Alembic uses sync)
+5. **Check port conflicts** before deploying (especially Portainer's 8000 port)
+6. **Configure passwordless sudo** for deployment automation
+7. **Generate API_SECRET_KEY** with `openssl rand -hex 32`
+8. **Set RAY_ENABLED=false** for Tier 3 deployments
+9. **Obtain SSL certificates for all domains at once** with single certbot command
+10. **Budget 2-3 hours for first deployment** (including troubleshooting)
+
+---
+
+### Deployment Checklist for Next Time
+
+Use this checklist for future deployments to avoid the issues we encountered:
+
+**Pre-Deployment:**
+- [ ] Verify alembic/env.py imports all 6 models
+- [ ] Generate all credentials (DB passwords, MinIO keys, API secrets)
+- [ ] Configure passwordless sudo on VPS
+- [ ] Set up GitHub deploy keys
+- [ ] Verify DNS records propagated
+
+**During Deployment:**
+- [ ] Install Python 3.12 (Ubuntu 24.04) or 3.11 (Ubuntu 22.04)
+- [ ] Install both psycopg2-binary and asyncpg
+- [ ] Use postgresql+asyncpg:// in DATABASE_URL
+- [ ] Set RAY_ENABLED=false in .env files
+- [ ] Install Ray with pip install 'ray[default]'
+- [ ] Run Portainer on port 9443 only (not 8000)
+- [ ] Move .env files to rgrid directory before systemd setup
+- [ ] Use app.main:app in systemd ExecStart (not api.main:app)
+
+**Post-Deployment:**
+- [ ] Verify all 4 systemd services running
+- [ ] Verify all 5 Docker containers running
+- [ ] Test HTTPS endpoints (staging, production, portainer)
+- [ ] Verify database schema (7 tables in both environments)
+- [ ] Test SSL certificate auto-renewal (certbot renew --dry-run)
+- [ ] Document any deviations from plan
 
 **You now have a production-ready RGrid deployment running both staging and production on a single VPS!** 🎉
