@@ -35,6 +35,7 @@ It's like a version control system for your database schema. When you add a new 
 **Domain**: rgrid.dev (already registered with NameSilo)
 - Staging: `https://staging.rgrid.dev`
 - Production: `https://api.rgrid.dev`
+- Portainer (optional): `https://portainer.rgrid.dev`
 
 **Total monthly cost**: ~$6.50 USD
 
@@ -44,7 +45,7 @@ It's like a version control system for your database schema. When you add a new 
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│ Hetzner VPS (CX21) - Ubuntu 22.04                          │
+│ Hetzner VPS (CX21) - Ubuntu 24.04 LTS                      │
 │ Public IP: XXX.XXX.XXX.XXX                                 │
 │                                                             │
 │  STAGING ENVIRONMENT (Port 8001)                           │
@@ -71,9 +72,12 @@ It's like a version control system for your database schema. When you add a new 
 │  │  └─────────┘                                        │  │
 │  └──────────────────────────────────────────────────────┘  │
 │                                                             │
+│  Portainer (Docker GUI): Port 9443                         │
+│                                                             │
 │  Firewall (UFW): SSH(22), HTTP(80), HTTPS(443)            │
 │  NGINX Reverse Proxy: staging.rgrid.dev → :8001           │
 │                       api.rgrid.dev → :8000                │
+│                       portainer.rgrid.dev → :9443          │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -104,7 +108,7 @@ It's like a version control system for your database schema. When you add a new 
 3. **Create a server**
    - Click "Add Server"
    - **Location**: Nuremberg, Germany (or closest to you)
-   - **Image**: Ubuntu 22.04
+   - **Image**: Ubuntu 24.04 LTS (latest stable release)
    - **Type**: CX21 (2 vCPU, 4GB RAM) - €5.83/month
    - **Networking**: Leave defaults (IPv4 + IPv6)
    - **SSH Keys**: Click "Add SSH Key"
@@ -137,7 +141,7 @@ It's like a version control system for your database schema. When you add a new 
    - **Write down the IP address** (e.g., 162.55.123.45)
 
 **What just happened?**
-You rented a computer in a datacenter. It's now running Ubuntu Linux and waiting for you to connect via SSH (Secure Shell - encrypted remote access).
+You rented a computer in a datacenter. It's now running Ubuntu 24.04 LTS (Long Term Support - maintained until 2029) and waiting for you to connect via SSH (Secure Shell - encrypted remote access).
 
 ---
 
@@ -169,6 +173,13 @@ You rented a computer in a datacenter. It's now running Ubuntu Linux and waiting
    - **TTL**: 3600
    - Click "Submit"
 
+   **For Portainer (optional - Docker GUI):**
+   - **Type**: A
+   - **Host**: portainer
+   - **Value**: <YOUR_VPS_IP> (same IP as others)
+   - **TTL**: 3600
+   - Click "Submit"
+
    **For Root domain (optional - for website later):**
    - **Type**: A
    - **Host**: @
@@ -186,6 +197,9 @@ You rented a computer in a datacenter. It's now running Ubuntu Linux and waiting
 
    dig api.rgrid.dev
    # Should also show your VPS IP
+
+   dig portainer.rgrid.dev
+   # Should also show your VPS IP (if you added it)
    ```
 
 **What just happened?**
@@ -570,6 +584,69 @@ exit
 ssh deploy@<YOUR_VPS_IP>
 ```
 
+### 1.5. Install Portainer (Docker GUI) - Optional but Recommended
+
+[VPS] Install Portainer for visual Docker management:
+
+```bash
+# Create volume for Portainer data
+docker volume create portainer_data
+
+# Run Portainer container
+docker run -d \
+  -p 9443:9443 \
+  -p 8000:8000 \
+  --name portainer \
+  --restart=always \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v portainer_data:/data \
+  portainer/portainer-ce:latest
+
+# Verify Portainer is running
+docker ps | grep portainer
+```
+
+**What is Portainer?**
+A web-based GUI for Docker that makes it easy to:
+- See all containers at a glance (running, stopped, resource usage)
+- View real-time logs without terminal commands
+- Monitor CPU/RAM usage per container
+- Access container terminals via browser
+- Manage networks, volumes, and images visually
+
+**Secure Access Options:**
+
+**Option A: SSH Tunnel (Recommended for testing)**
+
+[LOCAL] Create secure tunnel:
+```bash
+# Open SSH tunnel (keeps Portainer off public internet)
+ssh -L 9443:localhost:9443 deploy@<YOUR_VPS_IP>
+
+# Keep this terminal open, then visit:
+# https://localhost:9443
+```
+
+**Option B: Subdomain with SSL (For permanent access)**
+
+We'll configure this later with NGINX after setting up domains. This gives you `https://portainer.rgrid.dev`
+
+**First-time Setup:**
+
+1. **[LOCAL]** Open browser to `https://localhost:9443` (via SSH tunnel)
+2. **Create admin password** (12+ characters, save to password manager!)
+3. Click **"Get Started"**
+4. You'll see the Docker environment dashboard
+
+**What you'll see:**
+- 📊 Dashboard showing containers, images, volumes, networks
+- 📦 Container list with status (green = running)
+- 📝 Click any container to view logs
+- 📈 Real-time CPU/RAM graphs
+- 🖥️ Built-in terminal access to containers
+
+**Beginner Tip:** Portainer is excellent for learning Docker! Run commands in terminal, then check Portainer to see what changed visually.
+
 ### 2. Clone Repository
 
 [VPS] Clone the RGrid repository:
@@ -943,9 +1020,32 @@ server {
 }
 EOF
 
+# Create Portainer config (optional - for permanent web access)
+sudo tee /etc/nginx/sites-available/rgrid-portainer <<'EOF'
+server {
+    listen 80;
+    server_name portainer.rgrid.dev;
+
+    location / {
+        proxy_pass https://localhost:9443;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # Increase timeout for websockets
+        proxy_read_timeout 86400;
+    }
+}
+EOF
+
 # Enable sites
 sudo ln -s /etc/nginx/sites-available/rgrid-staging /etc/nginx/sites-enabled/
 sudo ln -s /etc/nginx/sites-available/rgrid-production /etc/nginx/sites-enabled/
+sudo ln -s /etc/nginx/sites-available/rgrid-portainer /etc/nginx/sites-enabled/
 
 # Test configuration
 sudo nginx -t
@@ -968,8 +1068,13 @@ sudo certbot --nginx -d staging.rgrid.dev --non-interactive --agree-tos -m your-
 # Get certificate for production
 sudo certbot --nginx -d api.rgrid.dev --non-interactive --agree-tos -m your-email@example.com
 
+# Get certificate for Portainer (optional - if you want permanent web access)
+sudo certbot --nginx -d portainer.rgrid.dev --non-interactive --agree-tos -m your-email@example.com
+
 # Certbot will automatically configure NGINX for HTTPS
 # Certificates auto-renew every 90 days
+
+# Note: You'll need to add portainer.rgrid.dev to NameSilo DNS (same IP as other subdomains)
 ```
 
 ### 13. Verify Deployment
@@ -1551,6 +1656,7 @@ mkdir -p ~/backups
 - **VPS**: Virtual Private Server - A computer you rent in a datacenter
 - **SSH**: Secure Shell - Encrypted remote access to your server
 - **Docker**: Containerization platform - packages apps with dependencies
+- **Portainer**: Web-based GUI for Docker - visual management of containers
 - **systemd**: Linux service manager - keeps apps running, restarts on crash
 - **NGINX**: Reverse proxy - routes web traffic to correct service
 - **Firewall (UFW)**: Security layer - blocks unauthorized access
@@ -1559,6 +1665,7 @@ mkdir -p ~/backups
 - **PostgreSQL**: Relational database - stores structured data
 - **MinIO**: S3-compatible object storage - stores files/artifacts
 - **Alembic**: Database migration tool - version control for DB schema
+- **SSH Tunnel**: Secure encrypted connection to access remote services locally
 
 ---
 
