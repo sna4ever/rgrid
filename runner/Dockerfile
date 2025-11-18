@@ -25,7 +25,8 @@ RUN pip install --no-cache-dir \
     psycopg2-binary \
     docker \
     boto3 \
-    minio
+    minio \
+    httpx
 
 # Set working directory to runner
 WORKDIR /app/runner
