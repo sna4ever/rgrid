@@ -12,6 +12,7 @@ class Worker(Base):
     """Worker node record."""
 
     __tablename__ = "workers"
+    __table_args__ = {'extend_existing': True}
 
     worker_id: Mapped[str] = mapped_column(String(64), primary_key=True)
     node_id: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)  # Hetzner server ID
@@ -27,6 +28,7 @@ class WorkerHeartbeat(Base):
     """Worker heartbeat tracking."""
 
     __tablename__ = "worker_heartbeats"
+    __table_args__ = {'extend_existing': True}
 
     worker_id: Mapped[str] = mapped_column(String(64), primary_key=True)
     last_heartbeat_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
