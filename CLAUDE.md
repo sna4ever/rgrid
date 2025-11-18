@@ -62,6 +62,48 @@ Full technical documentation in `docs/` directory. Key files:
 
 See `docs/TABLE_OF_CONTENTS.md` for complete documentation index.
 
+## Deployment Information
+
+**Deployment Server**: 46.62.246.120
+**SSH User**: `deploy`
+**Environments**: Staging and Production (both hosted on same server)
+
+### Server Access
+```bash
+# SSH access
+ssh deploy@46.62.246.120
+
+# Application directory
+/opt/rgrid
+```
+
+### Deployed Environments
+
+**Staging Environment**:
+- Domain: staging.rgrid.dev → 46.62.246.120
+- API: https://staging.rgrid.dev/api/v1/
+- Purpose: Testing and validation before production
+- Safe for destructive testing
+
+**Production Environment**:
+- Domain: api.rgrid.dev → 46.62.246.120
+- API: https://api.rgrid.dev/api/v1/
+- Purpose: Live production environment
+- CAUTION: Real users and data
+
+### Deployment Workflow
+
+1. **Deploy to Staging First**: Always deploy and test on staging before production
+2. **Automated Deployment**: Use `infra/deploy_orchestrator.sh` for Tier 4 orchestrator
+3. **Service Management**: Services managed via systemd
+4. **Monitoring**: Check logs with `journalctl -u <service-name> -f`
+
+### Important Notes
+- Both environments share the same server but use different ports/domains
+- Always test on staging before deploying to production
+- Use `deploy` user for all deployment operations
+- See `docs/DEPLOYMENT_GUIDE.md` for complete deployment procedures
+
 ## Testing Requirements (CRITICAL)
 
 **All code changes MUST include automated tests.** No feature is considered "done" without tests.
