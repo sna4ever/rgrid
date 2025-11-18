@@ -252,9 +252,11 @@ $ curl http://localhost:8001/api/v1/health
 
 ### Immediate (Before Worker Testing)
 
-1. **Provide Valid Hetzner API Token**
-   - Replace `placeholder_token_not_used_yet` in `.env.staging`
-   - Upload SSH public key to Hetzner Cloud
+1. **Configure Hetzner API Token**
+   - **File**: `/home/deploy/rgrid/.env.staging` (staging) or `.env.production` (production)
+   - **Variable**: Replace `HETZNER_API_TOKEN=placeholder_token_not_used_yet`
+   - **How to get token**: See `docs/HETZNER_API_CONFIGURATION.md`
+   - Upload SSH public key to Hetzner Cloud (automatic on first run)
    - Set `ORCHESTRATOR_ENABLED=true`
    - Restart orchestrator: `sudo systemctl restart orchestrator-staging`
 

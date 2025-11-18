@@ -104,6 +104,22 @@ ssh deploy@46.62.246.120
 - Use `deploy` user for all deployment operations
 - See `docs/DEPLOYMENT_GUIDE.md` for complete deployment procedures
 
+### Environment Configuration Files
+
+**Hetzner API Configuration** (Critical for Tier 4):
+- **Staging**: `/home/deploy/rgrid/.env.staging`
+- **Production**: `/home/deploy/rgrid/.env.production`
+- **Documentation**: `docs/HETZNER_API_CONFIGURATION.md`
+
+**Required Variables**:
+```bash
+HETZNER_API_TOKEN=your_token_here          # Get from Hetzner Cloud Console
+HETZNER_SSH_KEY_PATH=/home/deploy/.ssh/rgrid_worker_key
+ORCHESTRATOR_ENABLED=true                  # Set to true to enable worker provisioning
+```
+
+See `docs/HETZNER_API_CONFIGURATION.md` for complete configuration guide.
+
 ## Testing Requirements (CRITICAL)
 
 **All code changes MUST include automated tests.** No feature is considered "done" without tests.
