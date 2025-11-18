@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 # Provisioning constants
 PROVISION_CHECK_INTERVAL = 60  # seconds
-MIN_QUEUE_DEPTH = 5  # Provision worker if queue >= 5
+MIN_QUEUE_DEPTH = 1  # Provision worker if queue >= 1 (provision on ANY queued job)
 MAX_WORKERS = 10  # Maximum concurrent workers
 WORKER_CONCURRENT_JOBS = 2  # Jobs per worker
 
