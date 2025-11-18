@@ -107,9 +107,10 @@ class WorkerProvisioner:
                 queue_result = await session.execute(queue_query)
                 queue_depth = queue_result.scalar() or 0
 
-                # Get active worker count
+                # Get active+provisioning worker count
+                # Count both 'provisioning' and 'active' to avoid over-provisioning
                 worker_query = select(func.count(Worker.worker_id)).where(
-                    Worker.status == 'active'
+                    Worker.status.in_(['active', 'provisioning'])
                 )
                 worker_result = await session.execute(worker_query)
                 active_workers = worker_result.scalar() or 0
@@ -255,6 +256,10 @@ class WorkerProvisioner:
         """
         Generate cloud-init user data for worker.
 
+        Uses Docker image approach for faster, more reliable deployment.
+        The worker runs as a Docker container with access to host Docker socket
+        for executing job containers.
+
         Args:
             worker_id: Worker ID
 
@@ -270,24 +275,16 @@ package_upgrade: true
 
 packages:
   - docker.io
-  - python3-pip
-  - git
 
 runcmd:
-  # Install Docker Compose
-  - curl -L "https://github.com/docker/compose/releases/download/v2.20.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-  - chmod +x /usr/local/bin/docker-compose
-
-  # Clone RGrid repo (or download runner)
-  - mkdir -p /opt/rgrid
-  - cd /opt/rgrid
-
-  # Install Python dependencies
-  - pip3 install ray==2.8.0 sqlalchemy asyncpg psycopg2-binary docker boto3
+  # Pull RGrid worker Docker image from GitHub Container Registry
+  # This image contains all runner code and dependencies pre-installed
+  - echo "Pulling rgrid-worker image..."
+  - docker pull ghcr.io/sna4ever/rgrid-worker:latest
 
   # Pre-pull common Docker images (Story 4-4 - Performance Optimization)
   # This reduces cold-start latency for first job on worker
-  - echo "Pre-pulling common Docker images..."
+  - echo "Pre-pulling common runtime images..."
   - docker pull python:3.11-slim &
   - docker pull python:3.10-slim &
   - docker pull python:3.9-slim &
@@ -296,37 +293,20 @@ runcmd:
   # Wait for pulls to complete (run in background to not block worker startup)
   - wait
 
-  # Pre-pull custom RGrid images if they exist
-  # - docker pull rgrid/datascience:latest || true
-  # - docker pull rgrid/ffmpeg:latest || true
+  # Start RGrid worker container
+  # - Runs in detached mode with auto-restart
+  # - Mounts Docker socket for job execution
+  # - Passes DATABASE_URL and WORKER_ID as environment variables
+  - echo "Starting rgrid-worker container..."
+  - docker run -d \
+      --name rgrid-worker \
+      --restart always \
+      -e DATABASE_URL={db_url} \
+      -e WORKER_ID={worker_id} \
+      -v /var/run/docker.sock:/var/run/docker.sock \
+      ghcr.io/sna4ever/rgrid-worker:latest
 
-  # Set environment variables
-  - echo "DATABASE_URL={db_url}" >> /etc/environment
-  - echo "WORKER_ID={worker_id}" >> /etc/environment
-  - echo "RAY_HEAD_ADDRESS=10.0.0.1:6380" >> /etc/environment
-
-  # Start Ray worker
-  - ray start --address=10.0.0.1:6380 --num-cpus=2 --memory=4000000000
-
-  # TODO: Start runner worker process
-  # - systemctl start rgrid-worker
-
-write_files:
-  - path: /etc/systemd/system/rgrid-worker.service
-    content: |
-      [Unit]
-      Description=RGrid Worker
-      After=network.target
-
-      [Service]
-      Type=simple
-      User=root
-      WorkingDirectory=/opt/rgrid
-      Environment="DATABASE_URL={db_url}"
-      Environment="WORKER_ID={worker_id}"
-      ExecStart=/usr/bin/python3 -m runner.worker
-      Restart=always
-
-      [Install]
-      WantedBy=multi-user.target
+  # Verify worker started successfully
+  - sleep 5
+  - docker logs rgrid-worker --tail 20
 """
