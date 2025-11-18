@@ -11,6 +11,7 @@ class APIKey(Base):
     """API key for authentication."""
 
     __tablename__ = "api_keys"
+    __table_args__ = {'extend_existing': True}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     key_hash: Mapped[str] = mapped_column(String(255), unique=True, index=True)

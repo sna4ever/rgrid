@@ -15,6 +15,7 @@ class DependencyCache(Base):
     """
 
     __tablename__ = "dependency_cache"
+    __table_args__ = {'extend_existing': True}
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     deps_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True, nullable=False)

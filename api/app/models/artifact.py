@@ -11,6 +11,7 @@ class Artifact(Base):
     """Artifact record for uploaded/downloaded files."""
 
     __tablename__ = "artifacts"
+    __table_args__ = {'extend_existing': True}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     artifact_id: Mapped[str] = mapped_column(String(255), unique=True, index=True)

@@ -12,6 +12,7 @@ class Execution(Base):
     """Execution record."""
 
     __tablename__ = "executions"
+    __table_args__ = {'extend_existing': True}
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     execution_id: Mapped[str] = mapped_column(String(255), unique=True, index=True)

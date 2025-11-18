@@ -16,6 +16,7 @@ class CombinedCache(Base):
     """
 
     __tablename__ = "combined_cache"
+    __table_args__ = {'extend_existing': True}
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     combined_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True, nullable=False)
