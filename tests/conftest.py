@@ -28,9 +28,13 @@ def event_loop():
     loop.close()
 
 
-@pytest.fixture(scope="session", autouse=True)
+@pytest.fixture(scope="session")
 async def init_test_db():
-    """Initialize test database tables."""
+    """Initialize test database tables.
+
+    Note: Not autouse to avoid async fixture issues with sync tests.
+    Tests that need this should explicitly request it.
+    """
     try:
         from app.database import init_db, close_db
 

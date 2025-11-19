@@ -2,6 +2,7 @@
 
 from datetime import datetime
 from sqlalchemy import String, Text, Integer, DateTime, BigInteger, JSON, Boolean
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 from typing import Optional
 
@@ -44,3 +45,6 @@ class Execution(Base):
 
     # Batch tracking (Tier 5 - Story 5-3)
     batch_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True, index=True)
+
+    # Custom metadata tagging (Story 10-8)
+    metadata: Mapped[dict] = mapped_column(JSONB, default=dict, server_default="{}")

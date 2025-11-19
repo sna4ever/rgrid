@@ -38,6 +38,10 @@ class ExecutionCreate(ExecutionBase):
         None,
         description="Optional batch ID for grouping multiple executions (Tier 5 - Story 5-3)"
     )
+    metadata: Dict[str, str] = Field(
+        default_factory=dict,
+        description="Custom metadata tags for organizing and filtering executions (Story 10-8)"
+    )
 
 
 class ExecutionResponse(ExecutionBase):
@@ -74,6 +78,12 @@ class ExecutionResponse(ExecutionBase):
 
     # Cost tracking
     cost_micros: int = Field(default=0, ge=0, description="Cost in micros")
+
+    # Custom metadata (Story 10-8)
+    metadata: Dict[str, str] = Field(
+        default_factory=dict,
+        description="Custom metadata tags"
+    )
 
 
 class FileMetadata(BaseModel):

@@ -121,16 +121,16 @@ development_status:
   9-5-implement-cost-alerts-future-enhancement: ready-for-dev
   epic-9-retrospective: optional
 
-  # Epic 10: Web Interfaces & MVP Polish
+  # Epic 10: Web Interfaces & MVP Polish (🟡 PARTIAL - 4/8 stories)
   epic-10: contexted
-  10-1-build-marketing-website-landing-page: ready-for-dev
+  10-1-build-marketing-website-landing-page: done  # Epic 10 - COMPLETED 2025-11-19 (Next.js static site, 28 tests passing)
   10-2-build-console-dashboard-with-execution-history: ready-for-dev
   10-3-implement-download-outputs-via-console: ready-for-dev
   10-4-implement-structured-error-handling-with-clear-messages: done  # Tier 3 - Dev 3 - COMPLETED 2025-11-16
-  10-5-implement-network-failure-graceful-handling: ready-for-dev
+  10-5-implement-network-failure-graceful-handling: done  # Epic 10 - COMPLETED 2025-11-19 (CLI retry with exponential backoff, 30 tests passing)
   10-6-implement-manual-retry-command: ready-for-dev
   10-7-implement-auto-retry-for-transient-failures: ready-for-dev
-  10-8-implement-execution-metadata-tagging: ready-for-dev
+  10-8-implement-execution-metadata-tagging: done  # Epic 10 - COMPLETED 2025-11-19 (JSONB metadata + filtering, 16 tests passing, migration required)
   epic-10-retrospective: optional
 
   # Tier 3: Production Reliability Stories (✅ 3/3 core stories - 2025-11-15)

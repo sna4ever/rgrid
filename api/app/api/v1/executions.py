@@ -3,8 +3,8 @@
 import logging
 import secrets
 from datetime import datetime
-from typing import Dict
-from fastapi import APIRouter, Depends, HTTPException
+from typing import Dict, List, Optional
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -66,6 +66,7 @@ async def create_execution(
         env_vars=execution.env_vars,
         input_files=execution.input_files,  # Tier 4 - Story 2-5
         batch_id=execution.batch_id,  # Tier 5 - Story 5-3
+        metadata=execution.metadata,  # Story 10-8
         status=ExecutionStatus.QUEUED.value,
         created_at=datetime.utcnow(),
     )
@@ -105,6 +106,7 @@ async def create_execution(
         started_at=None,
         completed_at=None,
         cost_micros=0,
+        metadata=execution.metadata,  # Story 10-8
     )
 
 
@@ -141,6 +143,7 @@ async def get_execution(
         started_at=db_execution.started_at,
         completed_at=db_execution.completed_at,
         cost_micros=db_execution.cost_micros,
+        metadata=db_execution.metadata or {},  # Story 10-8
     )
 
 
@@ -244,3 +247,77 @@ async def get_artifact_download_url(
     download_url = minio_client.generate_presigned_download_url(s3_key, expiration=7200)
 
     return {"download_url": download_url}
+
+
+@router.get("/executions", response_model=List[ExecutionResponse])
+async def list_executions(
+    metadata: Optional[str] = Query(None, description="Filter by metadata (key=value format)"),
+    limit: int = Query(100, ge=1, le=1000, description="Maximum number of executions to return"),
+    db: AsyncSession = Depends(get_db),
+    api_key: str = Depends(verify_api_key),
+) -> List[ExecutionResponse]:
+    """
+    List executions with optional metadata filtering (Story 10-8).
+
+    Args:
+        metadata: Optional metadata filter in "key=value" format
+        limit: Maximum number of results
+        db: Database session
+        api_key: Authenticated API key
+
+    Returns:
+        List of executions matching the filter
+
+    Examples:
+        GET /api/v1/executions?metadata=project=ml-model
+        GET /api/v1/executions?metadata=project=ml-model&metadata=env=prod
+    """
+    from sqlalchemy import select
+
+    # Build query
+    query = select(Execution).order_by(Execution.created_at.desc()).limit(limit)
+
+    # Apply metadata filter if provided
+    if metadata:
+        # Parse metadata filter (format: "key=value")
+        if "=" not in metadata:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid metadata format. Expected 'key=value'"
+            )
+
+        key, value = metadata.split("=", 1)
+        filter_dict = {key: value}
+
+        # Use JSONB @> operator for containment check
+        query = query.where(Execution.metadata.contains(filter_dict))
+
+    # Execute query
+    result = await db.execute(query)
+    executions = result.scalars().all()
+
+    # Convert to response models
+    response_list = []
+    for db_execution in executions:
+        response_list.append(
+            ExecutionResponse(
+                execution_id=db_execution.execution_id,
+                script_content=db_execution.script_content,
+                runtime=db_execution.runtime,
+                args=db_execution.args,
+                env_vars=db_execution.env_vars,
+                status=ExecutionStatus(db_execution.status),
+                exit_code=db_execution.exit_code,
+                stdout=db_execution.stdout,
+                stderr=db_execution.stderr,
+                output_truncated=db_execution.output_truncated,
+                execution_error=db_execution.execution_error,
+                created_at=db_execution.created_at,
+                started_at=db_execution.started_at,
+                completed_at=db_execution.completed_at,
+                cost_micros=db_execution.cost_micros,
+                metadata=db_execution.metadata or {},
+            )
+        )
+
+    return response_list

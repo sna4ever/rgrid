@@ -51,12 +51,14 @@ from rgrid.commands.run import run
 from rgrid.commands.status import status
 from rgrid.commands.logs import logs
 from rgrid.commands.download import download
+from rgrid.commands.list import list
 
 main.add_command(init)
 main.add_command(run)
 main.add_command(status)
 main.add_command(logs)
 main.add_command(download)
+main.add_command(list)
 
 
 if __name__ == "__main__":

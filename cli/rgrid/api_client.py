@@ -3,6 +3,7 @@
 from typing import Optional, Any
 import httpx
 from rgrid.config import config
+from rgrid.retry import retry_with_backoff
 
 
 class APIClient:
@@ -24,6 +25,7 @@ class APIClient:
             timeout=30.0,
         )
 
+    @retry_with_backoff(max_retries=5)
     def create_execution(
         self,
         script_content: str,
@@ -33,6 +35,7 @@ class APIClient:
         input_files: Optional[list[str]] = None,
         batch_id: Optional[str] = None,
         requirements_content: Optional[str] = None,
+        metadata: Optional[dict[str, str]] = None,
     ) -> dict[str, Any]:
         """
         Create a new execution.
@@ -45,6 +48,7 @@ class APIClient:
             input_files: List of input file names (Tier 4 - Story 2-5)
             batch_id: Optional batch ID for grouping executions (Tier 5 - Story 5-3)
             requirements_content: Optional requirements.txt content for dependency caching (Story 6-2)
+            metadata: Optional custom metadata tags (Story 10-8)
 
         Returns:
             Execution response (includes upload_urls if input_files provided)
@@ -55,6 +59,7 @@ class APIClient:
             "args": args or [],
             "env_vars": env_vars or {},
             "input_files": input_files or [],
+            "metadata": metadata or {},
         }
 
         # Add batch_id if provided
@@ -72,12 +77,45 @@ class APIClient:
         response.raise_for_status()
         return response.json()
 
+    @retry_with_backoff(max_retries=5)
     def get_execution(self, execution_id: str) -> dict[str, Any]:
         """Get execution status."""
         response = self.client.get(f"/api/v1/executions/{execution_id}")
         response.raise_for_status()
         return response.json()
 
+    @retry_with_backoff(max_retries=5)
+    def list_executions(
+        self,
+        metadata: Optional[dict[str, str]] = None,
+        limit: int = 100
+    ) -> list[dict[str, Any]]:
+        """
+        List executions with optional metadata filtering (Story 10-8).
+
+        Args:
+            metadata: Optional metadata filter dictionary
+            limit: Maximum number of results
+
+        Returns:
+            List of execution dictionaries
+        """
+        params = {"limit": limit}
+
+        # Add metadata filter if provided
+        # Note: API expects single "key=value" query param for now
+        # For multiple filters, we'd need to enhance API to accept JSON
+        if metadata:
+            # For now, just send first metadata key-value pair
+            for key, value in metadata.items():
+                params["metadata"] = f"{key}={value}"
+                break  # Only first one for now
+
+        response = self.client.get("/api/v1/executions", params=params)
+        response.raise_for_status()
+        return response.json()
+
+    @retry_with_backoff(max_retries=5)
     def get_batch_status(self, batch_id: str) -> dict[str, Any]:
         """
         Get execution statuses for all jobs in a batch.
@@ -108,6 +146,7 @@ class APIClient:
         # This is a simplified implementation - in production would need proper API endpoint
         return [{"execution_id": batch_id, "batch_metadata": {"input_file": "unknown"}}]
 
+    @retry_with_backoff(max_retries=5)
     def get_artifacts(self, execution_id: str) -> list[dict[str, Any]]:
         """
         Get artifacts for an execution (Story 7-5).
@@ -137,6 +176,7 @@ class APIClient:
         with open(target_path, 'w') as f:
             f.write("")
 
+    @retry_with_backoff(max_retries=5)
     def get_artifact_download_url(self, s3_key: str) -> str:
         """
         Get presigned download URL for an artifact (Story 7-5).

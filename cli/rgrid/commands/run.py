@@ -22,7 +22,8 @@ console = Console()
 @click.option("--env", "-e", multiple=True, help="Environment variable (KEY=VALUE)")
 @click.option("--batch", type=click.Path(exists=True), multiple=True, help="Run script with multiple input files (batch mode)")
 @click.option("--remote-only", is_flag=True, help="Skip auto-download of outputs")
-def run(script: str, args: tuple[str, ...], runtime: str | None, env: tuple[str, ...], batch: tuple[str, ...], remote_only: bool) -> None:
+@click.option("--metadata", "-m", multiple=True, help="Custom metadata tag (KEY=VALUE)")
+def run(script: str, args: tuple[str, ...], runtime: str | None, env: tuple[str, ...], batch: tuple[str, ...], remote_only: bool, metadata: tuple[str, ...]) -> None:
     """
     Run a Python script remotely.
 
@@ -43,6 +44,10 @@ def run(script: str, args: tuple[str, ...], runtime: str | None, env: tuple[str,
         \b
         # Run with environment variables
         $ rgrid run script.py --env API_KEY=xxx --env DEBUG=true
+
+        \b
+        # Run with custom metadata tags
+        $ rgrid run script.py --metadata project=ml-model --metadata env=prod
 
         \b
         # Run batch of scripts with multiple files
@@ -80,6 +85,17 @@ def run(script: str, args: tuple[str, ...], runtime: str | None, env: tuple[str,
             raise click.Abort()
         key, value = env_var.split("=", 1)
         env_vars[key] = value
+
+    # Parse metadata tags (Story 10-8)
+    metadata_dict = {}
+    if metadata:
+        from rgrid.utils.metadata_parser import parse_metadata, MetadataParseError
+
+        try:
+            metadata_dict = parse_metadata(list(metadata))
+        except MetadataParseError as e:
+            console.print(f"[red]Error:[/red] {e}")
+            raise click.Abort()
 
     # Detect file arguments (Tier 4 - Story 2-5)
     file_args, regular_args = detect_file_arguments(list(args))
@@ -119,6 +135,7 @@ def run(script: str, args: tuple[str, ...], runtime: str | None, env: tuple[str,
                         input_files=[batch_filename],
                         batch_id=batch_id,  # All executions share same batch_id
                         requirements_content=requirements_content,  # Story 6-2
+                        metadata=metadata_dict,  # Story 10-8
                     )
 
                     # Upload the batch file
@@ -168,6 +185,7 @@ def run(script: str, args: tuple[str, ...], runtime: str | None, env: tuple[str,
                     env_vars=env_vars,
                     input_files=input_files,
                     requirements_content=requirements_content,  # Story 6-2
+                    metadata=metadata_dict,  # Story 10-8
                 )
 
                 # Upload files if any were detected
