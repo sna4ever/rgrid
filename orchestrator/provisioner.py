@@ -320,6 +320,7 @@ runcmd:
   # Start RGrid worker container
   # - Runs in detached mode with auto-restart
   # - Mounts Docker socket for job execution
+  # - Mounts /tmp for shared access (Docker-in-Docker volume sharing)
   # - Passes DATABASE_URL and WORKER_ID as environment variables
   - echo "Starting rgrid-worker container..."
   - docker run -d \
@@ -328,6 +329,7 @@ runcmd:
       -e DATABASE_URL={db_url} \
       -e WORKER_ID={worker_id} \
       -v /var/run/docker.sock:/var/run/docker.sock \
+      -v /tmp:/tmp \
       ghcr.io/sna4ever/rgrid-worker:latest
 
   # Verify worker started successfully
