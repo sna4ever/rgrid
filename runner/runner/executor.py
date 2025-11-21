@@ -9,7 +9,14 @@ import logging
 
 from runner.file_handler import download_input_files, map_args_to_container_paths
 from runner.output_collector import collect_output_files, upload_outputs_to_minio
-from runner.cache import calculate_deps_hash, lookup_dependency_cache, store_dependency_cache
+from runner.cache import (
+    calculate_deps_hash,
+    lookup_dependency_cache,
+    store_dependency_cache,
+    calculate_script_hash,
+    lookup_script_cache,
+    store_script_cache,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -139,21 +146,40 @@ RUN --mount=type=cache,target=/root/.cache/pip \\
         env_vars = env_vars or {}
         download_urls = download_urls or {}
 
+        # Story 6-1: Calculate script hash for cache lookup
+        script_hash = calculate_script_hash(script_content)
+        logger.info(f"Script hash: {script_hash[:16]}...")
+
+        # Story 6-1: Check script cache before any build operations
+        cached_image = lookup_script_cache(script_hash, runtime)
+        cache_hit = cached_image is not None
+
         # Create temporary directory for script and files
         with tempfile.TemporaryDirectory() as tmpdir:
             tmpdir_path = Path(tmpdir)
             script_path = tmpdir_path / "script.py"
             script_path.write_text(script_content)
 
-            # Story 6-2: Build custom image with dependencies if requirements.txt provided
+            # Determine the actual runtime to use
             actual_runtime = runtime
-            if requirements_content:
+
+            # Story 6-1: Use cached image if available
+            if cache_hit:
+                logger.info(f"✓ Script cache HIT - using cached image: {cached_image[:30]}...")
+                actual_runtime = cached_image
+            elif requirements_content:
+                # Story 6-2: Build custom image with dependencies if requirements.txt provided
                 logger.info("Building image with dependencies...")
                 actual_runtime = self.build_image_with_dependencies(
                     base_runtime=runtime,
                     requirements_content=requirements_content,
                     build_dir=tmpdir_path,
                 )
+                # Story 6-1: Store in script cache after building
+                try:
+                    store_script_cache(script_hash, runtime, actual_runtime)
+                except Exception as e:
+                    logger.warning(f"Failed to store script cache: {e}")
 
             # Download input files if any (Tier 4 - Story 2-5)
             # Story 7-2: Always create /work directory for outputs

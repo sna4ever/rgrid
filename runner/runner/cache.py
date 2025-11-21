@@ -1,12 +1,17 @@
-"""Caching for RGrid (Tier 5 - Stories 6-2 and 6-3).
+"""Caching for RGrid (Tier 5 - Stories 6-1, 6-2, and 6-3).
 
-This module provides two levels of caching:
+This module provides three levels of caching:
 
-1. Dependency layer caching (Story 6-2):
+1. Script content caching (Story 6-1):
+   - Caches Docker images by script content hash
+   - Uses SHA256 hash of raw script content (whitespace-sensitive)
+   - Enables instant execution for repeated identical scripts
+
+2. Dependency layer caching (Story 6-2):
    - Caches Docker layers with installed dependencies
    - Uses normalized hash of requirements.txt (order-independent)
 
-2. Combined caching with automatic invalidation (Story 6-3):
+3. Combined caching with automatic invalidation (Story 6-3):
    - Caches complete execution environment (script + deps + runtime)
    - Automatically invalidates on ANY change
    - Uses SHA256 hash of combined inputs (order-sensitive)
@@ -20,6 +25,151 @@ import os
 
 
 logger = logging.getLogger(__name__)
+
+
+# ============================================================================
+# Story 6-1: Script Content Hashing and Cache Lookup
+# ============================================================================
+
+
+def calculate_script_hash(script_content: str) -> str:
+    """Calculate SHA256 hash of script content (Story 6-1).
+
+    The hash is computed from the raw script content with NO normalization.
+    This is intentional - script whitespace can affect Python behavior
+    (indentation), so any change should produce a different hash.
+
+    Args:
+        script_content: Python script source code (raw string)
+
+    Returns:
+        64-character hex string (SHA256 hash)
+
+    Examples:
+        >>> calculate_script_hash("print('hello')")
+        'abc123...' (64 chars)
+
+        >>> # Whitespace changes produce different hash
+        >>> hash1 = calculate_script_hash("print('hi')")
+        >>> hash2 = calculate_script_hash("print('hi') ")
+        >>> hash1 != hash2
+        True
+
+    Note:
+        Unlike calculate_deps_hash(), this function does NOT normalize
+        whitespace or reorder content. Every character matters.
+    """
+    # Calculate SHA256 hash of raw script content
+    hash_bytes = hashlib.sha256(script_content.encode('utf-8')).digest()
+    hash_hex = hash_bytes.hex()
+
+    logger.debug(f"Calculated script_hash: {hash_hex[:16]}... for {len(script_content)} chars")
+
+    return hash_hex
+
+
+def lookup_script_cache(script_hash: str, runtime: str) -> Optional[str]:
+    """Look up cached Docker image by script hash (Story 6-1).
+
+    Args:
+        script_hash: SHA256 hash of script content (64 hex chars)
+        runtime: Docker runtime image (e.g., "python:3.11")
+
+    Returns:
+        Docker image ID if found in cache, None if cache miss
+
+    Examples:
+        >>> lookup_script_cache("abc123...", "python:3.11")
+        "sha256:image123..."  # Cache hit
+
+        >>> lookup_script_cache("xyz789...", "python:3.11")
+        None  # Cache miss
+
+    Note:
+        Returns None on database errors (graceful degradation).
+        The job will still execute, just without cache benefit.
+    """
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # Query the script_cache table
+        cursor.execute(
+            """
+            SELECT docker_image_id FROM script_cache
+            WHERE script_hash = %s AND runtime = %s
+            """,
+            (script_hash, runtime)
+        )
+
+        result = cursor.fetchone()
+        cursor.close()
+        conn.close()
+
+        if result:
+            image_id = result[0]
+            logger.info(f"Script cache HIT: {script_hash[:16]}... → {image_id[:20]}...")
+            return image_id
+        else:
+            logger.info(f"Script cache MISS: {script_hash[:16]}...")
+            return None
+
+    except Exception as e:
+        logger.error(f"Error looking up script cache: {e}")
+        # Return None on error (cache miss) - don't fail the job
+        return None
+
+
+def store_script_cache(script_hash: str, runtime: str, docker_image_id: str) -> None:
+    """Store new script cache entry (Story 6-1).
+
+    Args:
+        script_hash: SHA256 hash of script content (64 hex chars)
+        runtime: Docker runtime image (e.g., "python:3.11")
+        docker_image_id: Docker image ID (e.g., "sha256:...")
+
+    Raises:
+        Exception if database insert fails
+
+    Examples:
+        >>> store_script_cache(
+        ...     "abc123...",
+        ...     "python:3.11",
+        ...     "sha256:image123..."
+        ... )
+
+    Note:
+        Uses upsert (ON CONFLICT DO NOTHING) to handle race conditions
+        where multiple workers might cache the same script simultaneously.
+    """
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # Insert into script_cache table with upsert
+        cursor.execute(
+            """
+            INSERT INTO script_cache (script_hash, runtime, docker_image_id)
+            VALUES (%s, %s, %s)
+            ON CONFLICT (script_hash, runtime) DO NOTHING
+            """,
+            (script_hash, runtime, docker_image_id)
+        )
+
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        logger.info(f"Stored script cache: {script_hash[:16]}... → {docker_image_id[:20]}...")
+
+    except Exception as e:
+        logger.error(f"Error storing script cache: {e}")
+        raise
+
+
+# ============================================================================
+# Story 6-2: Dependency Layer Caching
+# ============================================================================
 
 
 def calculate_deps_hash(requirements_content: str) -> str:

@@ -20,6 +20,7 @@ Stories are grouped by tier. Only claim stories whose dependencies are marked [D
 | [DONE] **5-4** | Organize batch outputs | Dev 2 | 4 |
 | [DONE] **5-5** | Handle batch failures | Dev 3 | 4 |
 | [DONE] **2-4** | Auto-detect Python deps | Dev 1 | 5 |
+| [DONE] **7-5** | Remote-only flag (skip download) | Dev 3 | 5 |
 
 ---
 
@@ -77,12 +78,12 @@ Stories are grouped by tier. Only claim stories whose dependencies are marked [D
 
 ## Tier 5 Phase 6 - Advanced File Management
 
-**7-4 is [DONE] - 7-5 can start now!**
+**7-5 is [DONE] - 7-6 can start now!**
 
 | Status | Story | Description | Depends On | Story File |
 |--------|-------|-------------|------------|------------|
-| [IN PROGRESS: Dev 3] | **7-5** | Remote-only flag (skip download) | 7-4 ✅ | `docs/sprint-artifacts/stories/7-5-implement-remote-only-flag-to-skip-auto-download.md` |
-| [BLOCKED] | **7-6** | Large file streaming | 7-5 | `docs/sprint-artifacts/stories/7-6-implement-large-file-streaming-and-compression.md` |
+| [DONE] | **7-5** | Remote-only flag (skip download) | 7-4 ✅ | `docs/sprint-artifacts/stories/7-5-implement-remote-only-flag-to-skip-auto-download.md` |
+| [ ] | **7-6** | Large file streaming | 7-5 ✅ | `docs/sprint-artifacts/stories/7-6-implement-large-file-streaming-and-compression.md` |
 
 ---
 
@@ -92,7 +93,7 @@ Stories are grouped by tier. Only claim stories whose dependencies are marked [D
 
 | Status | Story | Description | Depends On | Story File |
 |--------|-------|-------------|------------|------------|
-| [ ] | **8-1** | rgrid status command | Epic 2 ✅ | `docs/sprint-artifacts/stories/8-1-implement-rgrid-status-command.md` |
+| [IN PROGRESS: Dev 1] | **8-1** | rgrid status command | Epic 2 ✅ | `docs/sprint-artifacts/stories/8-1-implement-rgrid-status-command.md` |
 | [ ] | **8-2** | rgrid logs command | Epic 2 ✅ | `docs/sprint-artifacts/stories/8-2-implement-rgrid-logs-command-with-historical-logs.md` |
 | [BLOCKED] | **8-3** | WebSocket log streaming | 8-2 | `docs/sprint-artifacts/stories/8-3-implement-websocket-log-streaming-for-real-time-logs.md` |
 
