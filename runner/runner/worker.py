@@ -153,12 +153,14 @@ class Worker:
                     download_urls[filename] = download_url
 
             # Execute script using DockerExecutor
+            # Story 2.4: Pass requirements_content for auto-installing Python deps
             exit_code, stdout, stderr, uploaded_outputs = self.executor.execute_script(
                 script_content=job.script_content,
                 runtime=job.runtime,
                 args=job.args or [],
                 env_vars=job.env_vars or {},
                 download_urls=download_urls if download_urls else None,
+                requirements_content=getattr(job, 'requirements_content', None),
             )
 
             # Truncate output if too large

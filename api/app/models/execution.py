@@ -44,3 +44,6 @@ class Execution(Base):
 
     # Batch tracking (Tier 5 - Story 5-3)
     batch_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True, index=True)
+
+    # Python dependency management (Story 2.4)
+    requirements_content: Mapped[Optional[str]] = mapped_column(Text, nullable=True)

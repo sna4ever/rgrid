@@ -48,3 +48,6 @@ class Execution(Base):
     # Ray/worker tracking (Tier 4 - Story 3-3)
     ray_task_id: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
     worker_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+
+    # Python dependency management (Story 2.4)
+    requirements_content: Mapped[Optional[str]] = mapped_column(Text, nullable=True)

@@ -38,6 +38,10 @@ class ExecutionCreate(ExecutionBase):
         None,
         description="Optional batch ID for grouping multiple executions (Tier 5 - Story 5-3)"
     )
+    requirements_content: Optional[str] = Field(
+        None,
+        description="Optional requirements.txt content for auto-installing Python dependencies (Story 2.4)"
+    )
 
 
 class ExecutionResponse(ExecutionBase):

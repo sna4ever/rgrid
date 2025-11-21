@@ -66,6 +66,7 @@ async def create_execution(
         env_vars=execution.env_vars,
         input_files=execution.input_files,  # Tier 4 - Story 2-5
         batch_id=execution.batch_id,  # Tier 5 - Story 5-3
+        requirements_content=execution.requirements_content,  # Story 2.4 - Python deps
         status=ExecutionStatus.QUEUED.value,
         created_at=datetime.utcnow(),
     )
