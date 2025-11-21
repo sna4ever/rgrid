@@ -153,7 +153,7 @@ class Worker:
                     download_urls[filename] = download_url
 
             # Execute script using DockerExecutor
-            exit_code, stdout, stderr = self.executor.execute_script(
+            exit_code, stdout, stderr, uploaded_outputs = self.executor.execute_script(
                 script_content=job.script_content,
                 runtime=job.runtime,
                 args=job.args or [],
