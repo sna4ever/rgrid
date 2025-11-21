@@ -23,6 +23,7 @@ Stories are grouped by tier. Only claim stories whose dependencies are marked [D
 | [DONE] **7-5** | Remote-only flag (skip download) | Dev 3 | 5 |
 | [DONE] **6-1** | Script content hashing | Dev 2 | 5 |
 | [DONE] **8-1** | rgrid status command | Dev 1 | 6 |
+| [DONE] **7-6** | Large file streaming | Dev 3 | 6 |
 
 ---
 
@@ -78,14 +79,14 @@ Stories are grouped by tier. Only claim stories whose dependencies are marked [D
 
 ---
 
-## Tier 5 Phase 6 - Advanced File Management
+## Tier 5 Phase 6 - Advanced File Management ✅ COMPLETE
 
-**7-5 is [DONE] - 7-6 can start now!**
+**Goal**: Large file handling with streaming and compression - **ACHIEVED!**
 
 | Status | Story | Description | Depends On | Story File |
 |--------|-------|-------------|------------|------------|
 | [DONE] | **7-5** | Remote-only flag (skip download) | 7-4 ✅ | `docs/sprint-artifacts/stories/7-5-implement-remote-only-flag-to-skip-auto-download.md` |
-| [IN PROGRESS: Dev 3] | **7-6** | Large file streaming | 7-5 ✅ | `docs/sprint-artifacts/stories/7-6-implement-large-file-streaming-and-compression.md` |
+| [DONE] | **7-6** | Large file streaming | 7-5 ✅ | `docs/sprint-artifacts/stories/7-6-implement-large-file-streaming-and-compression.md` |
 
 ---
 
@@ -96,7 +97,7 @@ Stories are grouped by tier. Only claim stories whose dependencies are marked [D
 | Status | Story | Description | Depends On | Story File |
 |--------|-------|-------------|------------|------------|
 | [DONE] | **8-1** | rgrid status command | Epic 2 ✅ | `docs/sprint-artifacts/stories/8-1-implement-rgrid-status-command.md` |
-| [ ] | **8-2** | rgrid logs command | Epic 2 ✅ | `docs/sprint-artifacts/stories/8-2-implement-rgrid-logs-command-with-historical-logs.md` |
+| [IN PROGRESS: Dev 1] | **8-2** | rgrid logs command | Epic 2 ✅ | `docs/sprint-artifacts/stories/8-2-implement-rgrid-logs-command-with-historical-logs.md` |
 | [BLOCKED] | **8-3** | WebSocket log streaming | 8-2 | `docs/sprint-artifacts/stories/8-3-implement-websocket-log-streaming-for-real-time-logs.md` |
 
 ---
