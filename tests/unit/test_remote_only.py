@@ -54,18 +54,24 @@ class TestRemoteOnlyFlag:
         assert 'Outputs stored remotely' in result.output
 
     def test_download_happens_without_flag(self, runner, mock_api_client, tmp_path):
-        """Test that default message is shown when --remote-only is NOT set."""
+        """Test that auto-download is triggered when --remote-only is NOT set."""
         # Arrange
         script_file = tmp_path / "test.py"
         script_file.write_text("print('hello')")
 
-        # Act
-        result = runner.invoke(main, ['run', str(script_file)])
+        # Mock wait_for_completion and download_outputs (Story 7-4)
+        with patch('rgrid.commands.run.wait_for_completion') as mock_wait:
+            mock_wait.return_value = {'status': 'completed', 'exit_code': 0}
+            with patch('rgrid.commands.run.download_outputs') as mock_download:
+                mock_download.return_value = {'downloaded': 1, 'failed': 0}
 
-        # Assert
-        assert result.exit_code == 0
-        # Without --remote-only, should show standard status message
-        assert 'Check status' in result.output or 'Execution created' in result.output
+                # Act
+                result = runner.invoke(main, ['run', str(script_file)])
+
+                # Assert
+                assert result.exit_code == 0
+                # Without --remote-only, should trigger auto-download flow
+                assert 'Waiting for completion' in result.output or 'completed' in result.output.lower()
 
     def test_display_download_command(self, runner, mock_api_client, tmp_path):
         """Test that proper download command message is shown with --remote-only."""

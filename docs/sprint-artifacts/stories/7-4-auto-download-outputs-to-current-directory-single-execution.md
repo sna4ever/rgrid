@@ -1,6 +1,6 @@
 # Story 7.4: Auto-Download Outputs to Current Directory (Single Execution)
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 
@@ -55,8 +55,18 @@ Story 7.3
 
 ### Completion Notes List
 
-<!-- To be filled during implementation -->
+- Implemented auto-download of outputs after single execution completes
+- Created downloader.py module with wait_for_completion() and download_outputs()
+- Added filename conflict resolution (prefixes with execution ID)
+- Progress display shows file sizes during download
+- --remote-only flag skips auto-download (Story 7-5 compatibility)
+- Batch executions do NOT auto-download (they monitor progress instead)
+- 17 unit tests + 6 integration tests = 23 new tests passing
 
 ### File List
 
-<!-- To be filled during implementation -->
+- cli/rgrid/downloader.py (NEW)
+- cli/rgrid/commands/run.py (MODIFIED)
+- tests/unit/test_auto_download.py (NEW)
+- tests/integration/test_download_outputs.py (NEW)
+- tests/unit/test_remote_only.py (MODIFIED)

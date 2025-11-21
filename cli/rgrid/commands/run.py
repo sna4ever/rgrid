@@ -12,6 +12,7 @@ from rgrid.utils.file_upload import upload_file_to_minio, upload_file_streaming
 from rgrid.batch_progress import display_batch_progress
 from rgrid.batch import expand_glob_pattern, generate_batch_id
 from rgrid.batch_executor import BatchExecutor
+from rgrid.downloader import wait_for_completion, download_outputs
 from rgrid_common.runtimes import resolve_runtime
 
 console = Console()
@@ -225,9 +226,26 @@ def run(script: str, args: tuple[str, ...], runtime: str | None, env: tuple[str,
             if remote_only:
                 console.print(f"\n[cyan]ℹ[/cyan] Outputs stored remotely. Download with: [cyan]rgrid download {execution_id}[/cyan]")
             else:
-                # Auto-download outputs (default behavior)
-                # TODO: Implement auto-download when execution completes
-                console.print(f"\nCheck status: [cyan]rgrid status {execution_id}[/cyan]")
+                # Story 7-4: Auto-download outputs after completion
+                console.print(f"\nWaiting for completion...")
+
+                # Re-open client for polling (was closed after submission)
+                client = get_client()
+                try:
+                    final_status = wait_for_completion(client, execution_id, timeout=300)
+
+                    if final_status.get('status') == 'completed':
+                        console.print(f"[green]✓[/green] Execution completed successfully")
+                        download_outputs(client, execution_id)
+                    else:
+                        error_msg = final_status.get('error_message', 'Unknown error')
+                        console.print(f"[red]✗[/red] Execution failed: {error_msg}")
+                        console.print(f"\nView logs: [cyan]rgrid logs {execution_id}[/cyan]")
+                except TimeoutError:
+                    console.print(f"[yellow]![/yellow] Execution still running after timeout")
+                    console.print(f"Check status: [cyan]rgrid status {execution_id}[/cyan]")
+                finally:
+                    client.close()
 
         except Exception as e:
             console.print(f"\n[red]Error:[/red] {e}")
