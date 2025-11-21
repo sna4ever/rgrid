@@ -188,8 +188,8 @@ class TestFileUpload:
 class TestRunnerFileDownload:
     """Test runner downloads files from MinIO before execution."""
 
-    @patch('httpx.Client.get')
-    def test_runner_downloads_input_files(self, mock_get):
+    @patch('httpx.stream')
+    def test_runner_downloads_input_files(self, mock_stream):
         """Runner should download input files to /work directory before execution."""
         from runner.runner.file_handler import download_input_files
 
@@ -199,10 +199,12 @@ class TestRunnerFileDownload:
         }
         work_dir = Path(tempfile.mkdtemp())
 
-        mock_response = Mock()
+        # Mock streaming response context manager
+        mock_response = MagicMock()
         mock_response.status_code = 200
-        mock_response.content = b'{"test": "data"}'
-        mock_get.return_value = mock_response
+        mock_response.headers = {}
+        mock_response.iter_bytes.return_value = [b'{"test": "data"}']
+        mock_stream.return_value.__enter__.return_value = mock_response
 
         try:
             # Act
@@ -220,8 +222,8 @@ class TestRunnerFileDownload:
                     file.unlink()
                 work_dir.rmdir()
 
-    @patch('httpx.Client.get')
-    def test_runner_downloads_multiple_files(self, mock_get):
+    @patch('httpx.stream')
+    def test_runner_downloads_multiple_files(self, mock_stream):
         """Runner should download all input files correctly."""
         from runner.runner.file_handler import download_input_files
 
@@ -233,18 +235,23 @@ class TestRunnerFileDownload:
         }
         work_dir = Path(tempfile.mkdtemp())
 
-        def mock_get_side_effect(url, **kwargs):
-            mock_response = Mock()
+        def mock_stream_side_effect(method, url, **kwargs):
+            mock_response = MagicMock()
             mock_response.status_code = 200
+            mock_response.headers = {}
             if "file1" in url:
-                mock_response.content = b'{"data": 1}'
+                mock_response.iter_bytes.return_value = [b'{"data": 1}']
             elif "file2" in url:
-                mock_response.content = b'col1,col2\n1,2'
+                mock_response.iter_bytes.return_value = [b'col1,col2\n1,2']
             elif "file3" in url:
-                mock_response.content = b'text content'
-            return mock_response
+                mock_response.iter_bytes.return_value = [b'text content']
+            # Return context manager
+            cm = MagicMock()
+            cm.__enter__.return_value = mock_response
+            cm.__exit__.return_value = None
+            return cm
 
-        mock_get.side_effect = mock_get_side_effect
+        mock_stream.side_effect = mock_stream_side_effect
 
         try:
             # Act

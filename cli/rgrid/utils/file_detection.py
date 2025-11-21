@@ -73,3 +73,68 @@ def parse_requirements_content(content: str) -> bool:
     # pip will handle validation during installation
     # This allows for comments, blank lines, etc.
     return True
+
+
+def _looks_like_file_path(arg: str) -> bool:
+    """
+    Check if an argument looks like an explicit file path.
+
+    An argument looks like a file path if:
+    - Contains path separator (/ or \\)
+    - Has a file extension (.csv, .json, .txt, etc.)
+
+    Args:
+        arg: Command-line argument to check
+
+    Returns:
+        True if argument looks like a file path
+    """
+    # Skip flags
+    if arg.startswith('-'):
+        return False
+
+    # Contains path separator
+    if '/' in arg or '\\' in arg:
+        return True
+
+    # Has common file extension
+    common_extensions = {
+        '.csv', '.json', '.txt', '.xml', '.yaml', '.yml',
+        '.py', '.js', '.ts', '.html', '.css', '.md',
+        '.pdf', '.png', '.jpg', '.jpeg', '.gif',
+        '.zip', '.tar', '.gz', '.log', '.dat', '.bin'
+    }
+    path = Path(arg)
+    if path.suffix.lower() in common_extensions:
+        return True
+
+    return False
+
+
+def validate_file_args(args: List[str]) -> None:
+    """
+    Validate that explicit file path arguments exist.
+
+    Raises FileNotFoundError if an argument looks like a file path
+    but the file doesn't exist. This provides clear error messages
+    when users specify files that don't exist.
+
+    Args:
+        args: List of command-line arguments
+
+    Raises:
+        FileNotFoundError: If an explicit file path doesn't exist
+    """
+    for arg in args:
+        # Skip flags
+        if arg.startswith('-'):
+            continue
+
+        # Check if this looks like an explicit file path
+        if _looks_like_file_path(arg):
+            # If it looks like a file path but doesn't exist, raise error
+            if not os.path.exists(arg):
+                raise FileNotFoundError(
+                    f"File not found: {arg}\n"
+                    f"Please check the path and try again."
+                )

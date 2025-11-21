@@ -7,10 +7,11 @@ from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
 from rgrid.api_client import get_client
-from rgrid.utils.file_detection import detect_file_arguments, detect_requirements_file
-from rgrid.utils.file_upload import upload_file_to_minio
+from rgrid.utils.file_detection import detect_file_arguments, detect_requirements_file, validate_file_args
+from rgrid.utils.file_upload import upload_file_to_minio, upload_file_streaming
 from rgrid.batch_progress import display_batch_progress
-from rgrid.batch import expand_glob_pattern, BatchSubmitter
+from rgrid.batch import expand_glob_pattern, generate_batch_id
+from rgrid.batch_executor import BatchExecutor
 from rgrid_common.runtimes import resolve_runtime
 
 console = Console()
@@ -22,8 +23,9 @@ console = Console()
 @click.option("--runtime", default=None, help="Runtime environment (default: python3.11)")
 @click.option("--env", "-e", multiple=True, help="Environment variable (KEY=VALUE)")
 @click.option("--batch", "batch_pattern", help="Glob pattern for batch execution (e.g., 'data/*.csv')")
+@click.option("--parallel", default=10, help="Max concurrent executions for batch mode (default: 10)")
 @click.option("--remote-only", is_flag=True, help="Skip auto-download of outputs")
-def run(script: str, args: tuple[str, ...], runtime: str | None, env: tuple[str, ...], batch_pattern: str | None, remote_only: bool) -> None:
+def run(script: str, args: tuple[str, ...], runtime: str | None, env: tuple[str, ...], batch_pattern: str | None, parallel: int, remote_only: bool) -> None:
     """
     Run a Python script remotely.
 
@@ -82,6 +84,13 @@ def run(script: str, args: tuple[str, ...], runtime: str | None, env: tuple[str,
         key, value = env_var.split("=", 1)
         env_vars[key] = value
 
+    # Story 7-1: Validate file arguments exist before proceeding
+    try:
+        validate_file_args(list(args))
+    except FileNotFoundError as e:
+        console.print(f"[red]Error:[/red] {e}")
+        raise click.Abort()
+
     # Detect file arguments (Tier 4 - Story 2-5)
     file_args, regular_args = detect_file_arguments(list(args))
 
@@ -100,39 +109,38 @@ def run(script: str, args: tuple[str, ...], runtime: str | None, env: tuple[str,
             console.print(f"[red]Error:[/red] {e}")
             raise SystemExit(1)
 
-        console.print(f"[cyan]Starting batch:[/cyan] {len(batch_files)} files")
+        console.print(f"[cyan]Starting batch:[/cyan] {len(batch_files)} files (parallel: {parallel})")
 
         try:
             client = get_client()
-            submitter = BatchSubmitter(client)
+            batch_id = generate_batch_id()
+            executor = BatchExecutor(max_parallel=parallel)
 
-            with Progress(
-                SpinnerColumn(),
-                TextColumn("[progress.description]{task.description}"),
-                console=console,
-            ) as progress:
-                task = progress.add_task(description="Submitting batch jobs...", total=len(batch_files))
-
-                # Submit batch using BatchSubmitter
-                result = submitter.submit_batch(
-                    script_content=script_content,
-                    files=batch_files,
-                    runtime=resolved_runtime,
-                    env_vars=env_vars,
-                    args=list(args),
-                    requirements_content=requirements_content,
+            # Progress callback for real-time updates
+            def progress_callback(completed: int, failed: int, total: int, running: int):
+                console.print(
+                    f"\r[{completed}/{total}] Running: {running}, "
+                    f"Completed: {completed}, Failed: {failed}",
+                    end=""
                 )
 
-                progress.update(task, completed=len(batch_files))
-
-            batch_id = result["batch_id"]
             console.print(f"[dim]Batch ID:[/dim] {batch_id}\n")
 
-            # Display submission details
-            for i, exec_info in enumerate(result["executions"], 1):
-                console.print(f"[{i}/{len(batch_files)}] Submitting {exec_info['file']}... {exec_info['execution_id']}")
+            # Submit batch using BatchExecutor with concurrency control
+            result = executor.execute_batch(
+                script_content=script_content,
+                files=batch_files,
+                runtime=resolved_runtime,
+                env_vars=env_vars,
+                args=list(args),
+                requirements_content=requirements_content,
+                client=client,
+                batch_id=batch_id,
+                progress_callback=progress_callback,
+            )
 
-            console.print(f"\n[green]✓[/green] Batch submitted successfully")
+            console.print()  # Newline after progress
+            console.print(f"\n[green]✓[/green] Batch submitted: {result.completed} succeeded, {result.failed} failed")
 
             # Handle output download based on --remote-only flag (Story 7-5)
             if remote_only:
@@ -174,17 +182,30 @@ def run(script: str, args: tuple[str, ...], runtime: str | None, env: tuple[str,
                     requirements_content=requirements_content,  # Story 6-2
                 )
 
-                # Upload files if any were detected
+                # Upload files if any were detected (Story 7-1)
                 upload_urls = result.get("upload_urls", {})
                 if upload_urls:
                     progress.update(task, description=f"Uploading {len(upload_urls)} file(s)...")
 
                     for file_path in file_args:
-                        filename = Path(file_path).name
+                        file_path_obj = Path(file_path)
+                        filename = file_path_obj.name
+                        file_size = file_path_obj.stat().st_size
                         presigned_url = upload_urls.get(filename)
 
                         if presigned_url:
-                            success = upload_file_to_minio(file_path, presigned_url)
+                            # Story 7-1: Show progress for large files (>1MB)
+                            if file_size > 1024 * 1024:
+                                progress.stop()  # Pause spinner for tqdm progress
+                                console.print(f"Uploading {filename} ({file_size / (1024*1024):.1f} MB)...")
+                                success = upload_file_streaming(file_path, presigned_url, show_progress=True)
+                                progress.start()  # Resume spinner
+                            else:
+                                # Small files - use simple upload with size display
+                                size_str = f"{file_size} bytes" if file_size < 1024 else f"{file_size / 1024:.1f} KB"
+                                progress.update(task, description=f"Uploading {filename} ({size_str})...")
+                                success = upload_file_to_minio(file_path, presigned_url)
+
                             if not success:
                                 console.print(f"[yellow]Warning:[/yellow] Failed to upload {filename}")
                         else:
