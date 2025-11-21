@@ -28,6 +28,7 @@ Stories are grouped by tier. Only claim stories whose dependencies are marked [D
 | [DONE] **6-2** | Dependency layer caching | Dev 2 | 7 |
 | [DONE] **9-1** | MICRONS cost calculation | Dev 1 | 8 |
 | [DONE] **8-6** | Track execution metadata | Dev 3 | 8 |
+| [DONE] **8-3** | WebSocket log streaming | Dev 2 | 8 |
 
 ---
 
@@ -100,9 +101,9 @@ Stories are grouped by tier. Only claim stories whose dependencies are marked [D
 |--------|-------|-------------|------------|------------|
 | [DONE] | **8-1** | rgrid status command | Epic 2 ✅ | `docs/sprint-artifacts/stories/8-1-implement-rgrid-status-command.md` |
 | [DONE] | **8-2** | rgrid logs command | Epic 2 ✅ | `docs/sprint-artifacts/stories/8-2-implement-rgrid-logs-command-with-historical-logs.md` |
-| [IN PROGRESS: Dev 2] | **8-3** | WebSocket log streaming | 8-2 ✅ | `docs/sprint-artifacts/stories/8-3-implement-websocket-log-streaming-for-real-time-logs.md` |
-| [BLOCKED] | **8-4** | CLI reconnection for WebSocket | 8-3 | `docs/sprint-artifacts/stories/8-4-implement-cli-reconnection-for-websocket-streams.md` |
-| [BLOCKED] | **8-5** | Batch progress with --watch | 5-3 ✅, 8-3 | `docs/sprint-artifacts/stories/8-5-implement-batch-progress-display-with-watch.md` |
+| [DONE] | **8-3** | WebSocket log streaming | 8-2 ✅ | `docs/sprint-artifacts/stories/8-3-implement-websocket-log-streaming-for-real-time-logs.md` |
+| [ ] | **8-4** | CLI reconnection for WebSocket | 8-3 ✅ | `docs/sprint-artifacts/stories/8-4-implement-cli-reconnection-for-websocket-streams.md` |
+| [ ] | **8-5** | Batch progress with --watch | 5-3 ✅, 8-3 ✅ | `docs/sprint-artifacts/stories/8-5-implement-batch-progress-display-with-watch.md` |
 | [DONE] | **8-6** | Track execution metadata | Epic 2 ✅ | `docs/sprint-artifacts/stories/8-6-track-execution-metadata-in-database.md` |
 
 ---
