@@ -94,19 +94,17 @@ class APIClient:
 
     def get_batch_executions(self, batch_id: str) -> list[dict[str, Any]]:
         """
-        Get all executions in a batch (Story 5-4).
+        Get all executions in a batch with full metadata (Story 5-4).
 
         Args:
             batch_id: Batch ID to query
 
         Returns:
-            List of execution dictionaries
+            List of execution dictionaries with batch_metadata including input_file
         """
-        # For now, use the batch status endpoint and fetch full execution details
-        # TODO: Add dedicated API endpoint for batch executions
-        status_response = self.get_batch_status(batch_id)
-        # This is a simplified implementation - in production would need proper API endpoint
-        return [{"execution_id": batch_id, "batch_metadata": {"input_file": "unknown"}}]
+        response = self.client.get(f"/api/v1/batches/{batch_id}/executions")
+        response.raise_for_status()
+        return response.json()
 
     def get_artifacts(self, execution_id: str) -> list[dict[str, Any]]:
         """

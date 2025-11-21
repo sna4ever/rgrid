@@ -12,6 +12,7 @@ from rgrid.utils.file_upload import upload_file_to_minio, upload_file_streaming
 from rgrid.batch_progress import display_batch_progress
 from rgrid.batch import expand_glob_pattern, generate_batch_id
 from rgrid.batch_executor import BatchExecutor
+from rgrid.batch_download import download_batch_outputs
 from rgrid.downloader import wait_for_completion, download_outputs
 from rgrid_common.runtimes import resolve_runtime
 
@@ -25,8 +26,10 @@ console = Console()
 @click.option("--env", "-e", multiple=True, help="Environment variable (KEY=VALUE)")
 @click.option("--batch", "batch_pattern", help="Glob pattern for batch execution (e.g., 'data/*.csv')")
 @click.option("--parallel", default=10, help="Max concurrent executions for batch mode (default: 10)")
+@click.option("--output-dir", default="./outputs", help="Output directory for batch outputs (default: ./outputs)")
+@click.option("--flat", is_flag=True, help="Flat output structure (no subdirectories per input file)")
 @click.option("--remote-only", is_flag=True, help="Skip auto-download of outputs")
-def run(script: str, args: tuple[str, ...], runtime: str | None, env: tuple[str, ...], batch_pattern: str | None, parallel: int, remote_only: bool) -> None:
+def run(script: str, args: tuple[str, ...], runtime: str | None, env: tuple[str, ...], batch_pattern: str | None, parallel: int, output_dir: str, flat: bool, remote_only: bool) -> None:
     """
     Run a Python script remotely.
 
@@ -143,6 +146,12 @@ def run(script: str, args: tuple[str, ...], runtime: str | None, env: tuple[str,
             console.print()  # Newline after progress
             console.print(f"\n[green]✓[/green] Batch submitted: {result.completed} succeeded, {result.failed} failed")
 
+            # Story 5-5: Display failed files with error messages
+            if result.failed_files:
+                console.print(f"\n[red]Failed executions:[/red]")
+                for filename, error_msg in result.failed_files:
+                    console.print(f"  [red]✗[/red] {filename}: {error_msg}")
+
             # Handle output download based on --remote-only flag (Story 7-5)
             if remote_only:
                 console.print(f"\n[cyan]ℹ[/cyan] Outputs stored remotely. Download with: [cyan]rgrid download {batch_id}[/cyan]")
@@ -153,11 +162,24 @@ def run(script: str, args: tuple[str, ...], runtime: str | None, env: tuple[str,
                 # Display real-time progress (Tier 5 - Story 5-3)
                 try:
                     display_batch_progress(client, batch_id, poll_interval=2.0)
+
+                    # Story 5-4: Download and organize batch outputs after completion
+                    console.print(f"\n[cyan]Downloading batch outputs...[/cyan]")
+                    download_batch_outputs(
+                        client,
+                        batch_id,
+                        output_dir=output_dir,
+                        flat=flat
+                    )
                 except KeyboardInterrupt:
                     # Handled in display_batch_progress
                     pass
                 finally:
                     client.close()
+
+            # Story 5-5: Exit code = 0 if any succeeded, 1 if all failed
+            if result.completed == 0:
+                raise SystemExit(1)
 
         except Exception as e:
             console.print(f"\n[red]Error:[/red] {e}")

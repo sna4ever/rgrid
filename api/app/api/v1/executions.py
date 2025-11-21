@@ -178,6 +178,62 @@ async def get_batch_status(
     return {"statuses": statuses}
 
 
+@router.get("/batches/{batch_id}/executions")
+async def get_batch_executions(
+    batch_id: str,
+    db: AsyncSession = Depends(get_db),
+    api_key: str = Depends(verify_api_key),
+) -> list[Dict]:
+    """
+    Get all executions in a batch with full metadata (Story 5-4).
+
+    Args:
+        batch_id: Batch ID to query
+        db: Database session
+        api_key: Authenticated API key
+
+    Returns:
+        List of execution dictionaries with metadata including input_files
+    """
+    from sqlalchemy import select
+
+    # Query all executions with this batch_id
+    result = await db.execute(
+        select(Execution).where(Execution.batch_id == batch_id)
+    )
+    executions = result.scalars().all()
+
+    if not executions:
+        raise HTTPException(status_code=404, detail="Batch not found")
+
+    # Build execution list with batch metadata
+    execution_list = []
+    for exec in executions:
+        # Extract input filename from args or input_files
+        input_file = None
+        if exec.input_files:
+            # Get first input file if available
+            input_file = exec.input_files[0] if isinstance(exec.input_files, list) and exec.input_files else None
+        elif exec.args:
+            # Fallback: look for filename in args
+            for arg in exec.args:
+                if isinstance(arg, str) and '.' in arg:
+                    input_file = arg
+                    break
+
+        execution_list.append({
+            "execution_id": exec.execution_id,
+            "status": exec.status,
+            "batch_metadata": {
+                "input_file": input_file,
+            },
+            "created_at": exec.created_at.isoformat() if exec.created_at else None,
+            "completed_at": exec.completed_at.isoformat() if exec.completed_at else None,
+        })
+
+    return execution_list
+
+
 @router.get("/executions/{execution_id}/artifacts")
 async def get_execution_artifacts(
     execution_id: str,

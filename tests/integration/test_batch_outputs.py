@@ -211,3 +211,134 @@ class TestBatchDownloadIntegration:
             # Assert
             assert mock_api.get_batch_executions.called
             assert mock_api.get_batch_executions.call_args[0][0] == batch_id
+
+
+class TestBatchDownloadHelpers:
+    """Test batch download helper functions."""
+
+    def test_extract_input_name_from_batch_metadata(self):
+        """Extract input filename from execution's batch_metadata."""
+        from cli.rgrid.batch_download import extract_input_name
+
+        execution = {"batch_metadata": {"input_file": "data/file1.csv"}}
+
+        result = extract_input_name(execution)
+
+        assert result == "file1.csv"
+
+    def test_extract_input_name_with_full_path(self):
+        """Extract just filename from full path."""
+        from cli.rgrid.batch_download import extract_input_name
+
+        execution = {"batch_metadata": {"input_file": "/home/user/data/file1.csv"}}
+
+        result = extract_input_name(execution)
+
+        assert result == "file1.csv"
+
+    def test_extract_input_name_returns_unknown_when_missing(self):
+        """Return 'unknown' when input_file is not present."""
+        from cli.rgrid.batch_download import extract_input_name
+
+        execution = {"batch_metadata": {}}
+
+        result = extract_input_name(execution)
+
+        assert result == "unknown"
+
+    def test_sanitize_output_dirname(self):
+        """Remove unsafe characters from directory names."""
+        from cli.rgrid.batch_download import sanitize_output_dirname
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = sanitize_output_dirname(tmpdir, "file<>name.csv")
+
+            assert result == "file__name.csv"
+
+    def test_sanitize_output_dirname_handles_collision(self):
+        """Handle directory name collision by appending counter."""
+        from cli.rgrid.batch_download import sanitize_output_dirname
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create existing directory
+            os.makedirs(os.path.join(tmpdir, "file.csv"))
+
+            result = sanitize_output_dirname(tmpdir, "file.csv")
+
+            assert result == "file_1.csv"
+
+    def test_construct_output_path_relative(self):
+        """Construct output path for relative artifact path."""
+        from cli.rgrid.batch_download import construct_output_path
+
+        result = construct_output_path("/outputs/data1.csv", "results/output.txt")
+
+        assert result == "/outputs/data1.csv/results/output.txt"
+
+    def test_construct_output_path_flat(self):
+        """Construct flat output path (no subdirectory structure)."""
+        from cli.rgrid.batch_download import construct_output_path
+
+        result = construct_output_path("/outputs", "results/nested/output.txt", preserve_structure=False)
+
+        assert result == "/outputs/output.txt"
+
+
+class TestCLIFlagsIntegration:
+    """Test CLI --output-dir and --flat flags for batch mode (Story 5-4)."""
+
+    def test_output_dir_flag_changes_destination(self):
+        """Test that --output-dir flag changes where outputs are downloaded."""
+        from cli.rgrid.batch_download import download_batch_outputs
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            custom_dir = os.path.join(tmpdir, "custom", "output", "dir")
+            mock_api = Mock()
+            batch_id = "test-batch"
+
+            executions = [
+                {"execution_id": "exec_1", "batch_metadata": {"input_file": "file1.csv"}},
+            ]
+
+            mock_api.get_batch_executions = Mock(return_value=executions)
+            mock_api.get_artifacts = Mock(return_value=[])
+
+            with patch('builtins.print'):
+                download_batch_outputs(
+                    mock_api,
+                    batch_id,
+                    output_dir=custom_dir,  # Custom output directory
+                    flat=False
+                )
+
+            # Assert custom directory was created
+            assert os.path.exists(os.path.join(custom_dir, "file1.csv"))
+
+    def test_flat_flag_creates_no_subdirectories(self):
+        """Test that --flat flag puts all outputs in single directory."""
+        from cli.rgrid.batch_download import organize_batch_outputs
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            mock_api = Mock()
+
+            executions = [
+                {"execution_id": "exec_1", "batch_metadata": {"input_file": "file1.csv"}},
+                {"execution_id": "exec_2", "batch_metadata": {"input_file": "file2.csv"}},
+            ]
+
+            mock_api.get_artifacts = Mock(return_value=[
+                {"file_key": "exec_1/output.txt", "filename": "output.txt"}
+            ])
+            mock_api.download_artifact = Mock()
+
+            organize_batch_outputs(
+                mock_api,
+                executions,
+                output_dir=tmpdir,
+                flat=True  # Flat mode
+            )
+
+            # Assert no per-input subdirectories were created
+            subdirs = [d for d in os.listdir(tmpdir) if os.path.isdir(os.path.join(tmpdir, d))]
+            assert "file1.csv" not in subdirs
+            assert "file2.csv" not in subdirs

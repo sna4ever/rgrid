@@ -281,17 +281,18 @@ class TestAutoDownloadIntegration:
             mock.return_value = client
 
             with patch('rgrid.commands.run.display_batch_progress'):
-                with patch('rgrid.batch.upload_file_to_minio', return_value=True):
-                    # Act
-                    result = runner.invoke(main, [
-                        'run', str(script_file),
-                        '--batch', str(tmp_path / "*.txt"),
-                    ])
+                with patch('rgrid.commands.run.download_batch_outputs'):  # Story 5-4: patch batch download
+                    with patch('rgrid.batch.upload_file_to_minio', return_value=True):
+                        # Act
+                        result = runner.invoke(main, [
+                            'run', str(script_file),
+                            '--batch', str(tmp_path / "*.txt"),
+                        ])
 
-                    # Assert - batch should NOT call download_outputs
-                    assert result.exit_code == 0
-                    # Batch mode shows batch progress, not auto-download
-                    # This validates batch doesn't trigger auto-download logic
+                        # Assert - batch should NOT call download_outputs
+                        assert result.exit_code == 0
+                        # Batch mode shows batch progress, not auto-download
+                        # This validates batch doesn't trigger auto-download logic
 
     def test_remote_only_skips_auto_download(self, runner, tmp_path):
         """Test that --remote-only flag skips auto-download."""

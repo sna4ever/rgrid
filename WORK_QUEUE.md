@@ -17,6 +17,7 @@ Stories are grouped by tier. Only claim stories whose dependencies are marked [D
 | [DONE] **7-1** | Auto-upload input files | Dev 2 | 2 |
 | [DONE] **7-4** | Auto-download outputs | Dev 3 | 3 |
 | [DONE] **5-3** | Batch progress tracking | Dev 1 | 4 |
+| [DONE] **5-4** | Organize batch outputs | Dev 2 | 4 |
 
 ---
 
@@ -48,7 +49,7 @@ Stories are grouped by tier. Only claim stories whose dependencies are marked [D
 | Status | Story | Description | Depends On | Story File |
 |--------|-------|-------------|------------|------------|
 | [DONE] | **5-3** | Batch progress tracking | 5-1 ✅, 5-2 ✅ | `docs/sprint-artifacts/stories/5-3-track-batch-execution-progress.md` |
-| [IN PROGRESS: Dev 2] | **5-4** | Organize batch outputs | 5-1 ✅ | `docs/sprint-artifacts/stories/5-4-organize-batch-outputs-by-input-filename.md` |
+| [DONE] | **5-4** | Organize batch outputs | 5-1 ✅ | `docs/sprint-artifacts/stories/5-4-organize-batch-outputs-by-input-filename.md` |
 | [IN PROGRESS: Dev 3] | **5-5** | Handle batch failures | 5-1 ✅ | `docs/sprint-artifacts/stories/5-5-handle-batch-failures-gracefully.md` |
 
 ---
