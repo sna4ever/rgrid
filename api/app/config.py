@@ -77,6 +77,12 @@ class Settings(BaseSettings):
         description="Enable Ray distributed execution (disable for testing)"
     )
 
+    # Artifact Retention (Tier 5 - Story 7-3)
+    artifact_retention_days: int = Field(
+        default=30,
+        description="Number of days to retain artifacts before automatic deletion"
+    )
+
     @property
     def is_development(self) -> bool:
         """Check if running in development mode."""

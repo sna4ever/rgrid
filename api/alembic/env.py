@@ -18,6 +18,10 @@ from app.database import Base
 # Import all models to register them with Base.metadata
 from app.models.execution import Execution  # noqa: F401
 from app.models.api_key import APIKey  # noqa: F401
+from app.models.artifact import Artifact  # noqa: F401
+from app.models.worker import Worker  # noqa: F401
+from app.models.dependency_cache import DependencyCache  # noqa: F401
+from app.models.combined_cache import CombinedCache  # noqa: F401
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

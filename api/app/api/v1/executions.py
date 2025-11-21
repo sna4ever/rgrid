@@ -216,6 +216,7 @@ async def get_execution_artifacts(
             "size_bytes": artifact.size_bytes,
             "content_type": artifact.content_type,
             "created_at": artifact.created_at.isoformat() if artifact.created_at else None,
+            "expires_at": artifact.expires_at.isoformat() if artifact.expires_at else None,
         })
 
     return artifact_list
