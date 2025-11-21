@@ -1,6 +1,6 @@
 # Story 5.2: Implement --parallel Flag for Concurrency Control
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 
@@ -48,16 +48,23 @@ Story 5.1
 
 ### Agent Model Used
 
-<!-- To be filled during implementation -->
+Claude Sonnet 4.5 (claude-sonnet-4-5-20250929)
 
 ### Debug Log References
 
-<!-- To be filled during implementation -->
+N/A - All tests passed
 
 ### Completion Notes List
 
-<!-- To be filled during implementation -->
+- Implemented BatchExecutor class with asyncio.Semaphore for concurrency control
+- Added --parallel flag to `rgrid run` command with default value of 10
+- Progress callback provides real-time updates: [completed/total] Running: N, Completed: N, Failed: N
+- Graceful handling of partial failures - batch continues even if individual jobs fail
+- 9 unit tests + 5 integration tests = 14 total tests passing
 
 ### File List
 
-<!-- To be filled during implementation -->
+- cli/rgrid/batch_executor.py (NEW) - Async batch executor with concurrency control
+- cli/rgrid/commands/run.py (MODIFIED) - Added --parallel flag
+- tests/unit/test_batch_parallel.py (NEW) - 9 unit tests
+- tests/integration/test_parallel_execution.py (NEW) - 5 integration tests
