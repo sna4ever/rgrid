@@ -1,6 +1,6 @@
 # Story 5.1: Implement --batch Flag with Glob Pattern Expansion
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 
@@ -19,10 +19,16 @@ So that each CSV file creates a separate execution.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1 (AC: #1)
-  - [ ] Subtask 1.1
-- [ ] Task 2 (AC: #2)
-  - [ ] Subtask 2.1
+- [x] Task 1: Implement batch.py module (AC: #2, #3)
+  - [x] expand_glob_pattern() function
+  - [x] generate_batch_id() function
+  - [x] BatchSubmitter class
+- [x] Task 2: Update --batch CLI flag (AC: #1, #4, #5, #6)
+  - [x] Change from multiple files to glob pattern
+  - [x] Integrate BatchSubmitter into run command
+- [x] Task 3: Unit tests (9 tests)
+- [x] Task 4: Integration tests (5 tests)
+- [x] Task 5: Update existing test that used old API
 
 ## Dev Notes
 
@@ -56,8 +62,17 @@ Epic 2 complete
 
 ### Completion Notes List
 
-<!-- To be filled during implementation -->
+- Implemented glob pattern expansion for --batch flag
+- Created cli/rgrid/batch.py with expand_glob_pattern(), generate_batch_id(), BatchSubmitter
+- Updated cli/rgrid/commands/run.py to use glob pattern instead of multiple files
+- 9 unit tests passing (tests/unit/test_batch_glob.py)
+- 5 integration tests passing (tests/integration/test_batch_execution.py)
+- Updated 1 existing test (test_download_command.py) to use new API
 
 ### File List
 
-<!-- To be filled during implementation -->
+- cli/rgrid/batch.py (NEW)
+- cli/rgrid/commands/run.py (MODIFIED)
+- tests/unit/test_batch_glob.py (NEW)
+- tests/integration/test_batch_execution.py (NEW)
+- tests/integration/test_download_command.py (MODIFIED)

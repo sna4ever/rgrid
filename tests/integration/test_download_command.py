@@ -136,22 +136,23 @@ class TestDownloadCommand:
                 assert mock_download.call_count == 1
 
     def test_remote_only_with_batch(self, runner, tmp_path):
-        """Test --remote-only flag works for 10-job batch."""
+        """Test --remote-only flag works for 10-job batch using glob pattern."""
         # Arrange
         script_file = tmp_path / "test.py"
         script_file.write_text("print('hello')")
 
         # Create 10 batch files
-        batch_files = []
         for i in range(10):
             batch_file = tmp_path / f"input_{i}.txt"
             batch_file.write_text(f"data_{i}")
-            batch_files.append(str(batch_file))
+
+        # Story 5-1: Use glob pattern instead of multiple --batch flags
+        batch_pattern = str(tmp_path / "input_*.txt")
 
         with patch('rgrid.commands.run.get_client') as mock:
             client = Mock()
             client.create_execution.return_value = {
-                'execution_id': f'exec_batch_{i}',
+                'execution_id': 'exec_batch_test',
                 'status': 'queued',
                 'upload_urls': {}
             }
@@ -163,13 +164,14 @@ class TestDownloadCommand:
 
             # Act
             with patch('rgrid.commands.run.display_batch_progress'):
-                result = runner.invoke(main, [
-                    'run', str(script_file),
-                    *[arg for f in batch_files for arg in ['--batch', f]],
-                    '--remote-only'
-                ])
+                with patch('rgrid.batch.upload_file_to_minio', return_value=True):
+                    result = runner.invoke(main, [
+                        'run', str(script_file),
+                        '--batch', batch_pattern,
+                        '--remote-only'
+                    ])
 
-                # Assert
-                assert result.exit_code == 0
-                # Should create 10 executions
-                assert client.create_execution.call_count == 10
+                    # Assert
+                    assert result.exit_code == 0
+                    # Should create 10 executions
+                    assert client.create_execution.call_count == 10

@@ -10,6 +10,7 @@ from rgrid.api_client import get_client
 from rgrid.utils.file_detection import detect_file_arguments, detect_requirements_file
 from rgrid.utils.file_upload import upload_file_to_minio
 from rgrid.batch_progress import display_batch_progress
+from rgrid.batch import expand_glob_pattern, BatchSubmitter
 from rgrid_common.runtimes import resolve_runtime
 
 console = Console()
@@ -20,9 +21,9 @@ console = Console()
 @click.argument("args", nargs=-1)
 @click.option("--runtime", default=None, help="Runtime environment (default: python3.11)")
 @click.option("--env", "-e", multiple=True, help="Environment variable (KEY=VALUE)")
-@click.option("--batch", type=click.Path(exists=True), multiple=True, help="Run script with multiple input files (batch mode)")
+@click.option("--batch", "batch_pattern", help="Glob pattern for batch execution (e.g., 'data/*.csv')")
 @click.option("--remote-only", is_flag=True, help="Skip auto-download of outputs")
-def run(script: str, args: tuple[str, ...], runtime: str | None, env: tuple[str, ...], batch: tuple[str, ...], remote_only: bool) -> None:
+def run(script: str, args: tuple[str, ...], runtime: str | None, env: tuple[str, ...], batch_pattern: str | None, remote_only: bool) -> None:
     """
     Run a Python script remotely.
 
@@ -91,15 +92,19 @@ def run(script: str, args: tuple[str, ...], runtime: str | None, env: tuple[str,
     resolved_runtime = resolve_runtime(runtime)
 
     # Batch mode: Create multiple executions with same batch_id
-    if batch:
-        batch_id = f"batch_{secrets.token_hex(8)}"
-        batch_files = list(batch)
+    if batch_pattern:
+        # Story 5-1: Expand glob pattern to list of files
+        try:
+            batch_files = expand_glob_pattern(batch_pattern)
+        except ValueError as e:
+            console.print(f"[red]Error:[/red] {e}")
+            raise SystemExit(1)
 
-        console.print(f"[cyan]Starting batch execution:[/cyan] {len(batch_files)} files")
-        console.print(f"[dim]Batch ID:[/dim] {batch_id}\n")
+        console.print(f"[cyan]Starting batch:[/cyan] {len(batch_files)} files")
 
         try:
             client = get_client()
+            submitter = BatchSubmitter(client)
 
             with Progress(
                 SpinnerColumn(),
@@ -108,27 +113,26 @@ def run(script: str, args: tuple[str, ...], runtime: str | None, env: tuple[str,
             ) as progress:
                 task = progress.add_task(description="Submitting batch jobs...", total=len(batch_files))
 
-                for batch_file in batch_files:
-                    # Use batch file as input file for each execution
-                    batch_filename = Path(batch_file).name
-                    result = client.create_execution(
-                        script_content=script_content,
-                        runtime=resolved_runtime,
-                        args=list(args) + [batch_filename],  # Add batch file as argument
-                        env_vars=env_vars,
-                        input_files=[batch_filename],
-                        batch_id=batch_id,  # All executions share same batch_id
-                        requirements_content=requirements_content,  # Story 6-2
-                    )
+                # Submit batch using BatchSubmitter
+                result = submitter.submit_batch(
+                    script_content=script_content,
+                    files=batch_files,
+                    runtime=resolved_runtime,
+                    env_vars=env_vars,
+                    args=list(args),
+                    requirements_content=requirements_content,
+                )
 
-                    # Upload the batch file
-                    upload_urls = result.get("upload_urls", {})
-                    if upload_urls and batch_filename in upload_urls:
-                        upload_file_to_minio(batch_file, upload_urls[batch_filename])
+                progress.update(task, completed=len(batch_files))
 
-                    progress.update(task, advance=1)
+            batch_id = result["batch_id"]
+            console.print(f"[dim]Batch ID:[/dim] {batch_id}\n")
 
-            console.print(f"[green]✓[/green] Submitted {len(batch_files)} jobs")
+            # Display submission details
+            for i, exec_info in enumerate(result["executions"], 1):
+                console.print(f"[{i}/{len(batch_files)}] Submitting {exec_info['file']}... {exec_info['execution_id']}")
+
+            console.print(f"\n[green]✓[/green] Batch submitted successfully")
 
             # Handle output download based on --remote-only flag (Story 7-5)
             if remote_only:
