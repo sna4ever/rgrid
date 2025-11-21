@@ -24,6 +24,7 @@ Stories are grouped by tier. Only claim stories whose dependencies are marked [D
 | [DONE] **6-1** | Script content hashing | Dev 2 | 5 |
 | [DONE] **8-1** | rgrid status command | Dev 1 | 6 |
 | [DONE] **7-6** | Large file streaming | Dev 3 | 6 |
+| [DONE] **8-2** | rgrid logs command | Dev 1 | 7 |
 
 ---
 
@@ -75,7 +76,7 @@ Stories are grouped by tier. Only claim stories whose dependencies are marked [D
 | Status | Story | Description | Depends On | Story File |
 |--------|-------|-------------|------------|------------|
 | [DONE] | **6-1** | Script content hashing | 7-1 ✅ | `docs/sprint-artifacts/stories/6-1-implement-script-content-hashing-and-cache-lookup.md` |
-| [ ] | **6-2** | Dependency layer caching | 6-1 ✅ | `docs/sprint-artifacts/stories/6-2-implement-dependency-layer-caching.md` |
+| [IN PROGRESS: Dev 2] | **6-2** | Dependency layer caching | 6-1 ✅ | `docs/sprint-artifacts/stories/6-2-implement-dependency-layer-caching.md` |
 
 ---
 
@@ -97,8 +98,8 @@ Stories are grouped by tier. Only claim stories whose dependencies are marked [D
 | Status | Story | Description | Depends On | Story File |
 |--------|-------|-------------|------------|------------|
 | [DONE] | **8-1** | rgrid status command | Epic 2 ✅ | `docs/sprint-artifacts/stories/8-1-implement-rgrid-status-command.md` |
-| [IN PROGRESS: Dev 1] | **8-2** | rgrid logs command | Epic 2 ✅ | `docs/sprint-artifacts/stories/8-2-implement-rgrid-logs-command-with-historical-logs.md` |
-| [BLOCKED] | **8-3** | WebSocket log streaming | 8-2 | `docs/sprint-artifacts/stories/8-3-implement-websocket-log-streaming-for-real-time-logs.md` |
+| [DONE] | **8-2** | rgrid logs command | Epic 2 ✅ | `docs/sprint-artifacts/stories/8-2-implement-rgrid-logs-command-with-historical-logs.md` |
+| [ ] | **8-3** | WebSocket log streaming | 8-2 ✅ | `docs/sprint-artifacts/stories/8-3-implement-websocket-log-streaming-for-real-time-logs.md` |
 
 ---
 
