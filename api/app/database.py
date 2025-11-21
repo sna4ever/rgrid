@@ -73,6 +73,7 @@ async def init_db() -> None:
     """
     # Import models to register them with Base.metadata
     from app.models.execution import Execution  # noqa: F401
+    from app.models.execution_log import ExecutionLog  # noqa: F401
     from app.models.api_key import APIKey  # noqa: F401
 
     async with engine.begin() as conn:

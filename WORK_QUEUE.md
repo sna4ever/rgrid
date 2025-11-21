@@ -26,6 +26,7 @@ Stories are grouped by tier. Only claim stories whose dependencies are marked [D
 | [DONE] **7-6** | Large file streaming | Dev 3 | 6 |
 | [DONE] **8-2** | rgrid logs command | Dev 1 | 7 |
 | [DONE] **6-2** | Dependency layer caching | Dev 2 | 7 |
+| [DONE] **9-1** | MICRONS cost calculation | Dev 1 | 8 |
 | [DONE] **8-6** | Track execution metadata | Dev 3 | 8 |
 
 ---
@@ -112,10 +113,10 @@ Stories are grouped by tier. Only claim stories whose dependencies are marked [D
 
 | Status | Story | Description | Depends On | Story File |
 |--------|-------|-------------|------------|------------|
-| [IN PROGRESS: Dev 1] | **9-1** | MICRONS cost calculation | Epic 4 ✅ | `docs/sprint-artifacts/stories/9-1-implement-microns-cost-calculation.md` |
-| [BLOCKED] | **9-2** | Billing hour cost amortization | 9-1 | `docs/sprint-artifacts/stories/9-2-implement-billing-hour-cost-amortization.md` |
-| [BLOCKED] | **9-3** | rgrid cost command | 9-1 | `docs/sprint-artifacts/stories/9-3-implement-rgrid-cost-command.md` |
-| [BLOCKED] | **9-4** | Cost estimation for batches | 9-1 | `docs/sprint-artifacts/stories/9-4-implement-cost-estimation-for-batch-executions.md` |
+| [DONE] | **9-1** | MICRONS cost calculation | Epic 4 ✅ | `docs/sprint-artifacts/stories/9-1-implement-microns-cost-calculation.md` |
+| [ ] | **9-2** | Billing hour cost amortization | 9-1 ✅ | `docs/sprint-artifacts/stories/9-2-implement-billing-hour-cost-amortization.md` |
+| [ ] | **9-3** | rgrid cost command | 9-1 ✅ | `docs/sprint-artifacts/stories/9-3-implement-rgrid-cost-command.md` |
+| [ ] | **9-4** | Cost estimation for batches | 9-1 ✅ | `docs/sprint-artifacts/stories/9-4-implement-cost-estimation-for-batch-executions.md` |
 
 ---
 

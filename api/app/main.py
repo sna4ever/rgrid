@@ -25,6 +25,7 @@ if settings.ray_enabled:
         logger.warning("Ray not installed - distributed execution disabled")
 
 from app.api.v1.health import router as health_router
+from app.websocket.logs import router as websocket_logs_router
 
 # Configure logging
 logging.basicConfig(
@@ -106,6 +107,9 @@ app.include_router(health_router, prefix="/api/v1", tags=["health"])
 from app.api.v1.executions import router as executions_router
 
 app.include_router(executions_router, prefix="/api/v1", tags=["executions"])
+
+# WebSocket routes (Story 8-3)
+app.include_router(websocket_logs_router, tags=["websocket"])
 
 
 @app.get("/")

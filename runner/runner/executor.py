@@ -17,6 +17,7 @@ from runner.cache import (
     lookup_script_cache,
     store_script_cache,
 )
+from runner.log_streamer import stream_container_logs
 
 logger = logging.getLogger(__name__)
 
@@ -123,6 +124,7 @@ RUN --mount=type=cache,target=/root/.cache/pip \\
         download_urls: Optional[Dict[str, str]] = None,
         exec_id: Optional[str] = None,  # Story 7-2: For output collection
         requirements_content: Optional[str] = None,  # Story 6-2: Dependency caching
+        stream_logs: bool = False,  # Story 8-3: Real-time log streaming
     ) -> tuple[int, str, str, list]:
         """
         Execute script in Docker container with resource limits.
@@ -138,6 +140,7 @@ RUN --mount=type=cache,target=/root/.cache/pip \\
             download_urls: Presigned URLs for input files (Tier 4 - Story 2-5)
             exec_id: Execution ID for output collection (Story 7-2)
             requirements_content: Optional requirements.txt content for dependency caching (Story 6-2)
+            stream_logs: Enable real-time log streaming to API (Story 8-3)
 
         Returns:
             Tuple of (exit_code, stdout, stderr, uploaded_outputs)
@@ -226,18 +229,67 @@ RUN --mount=type=cache,target=/root/.cache/pip \\
                 )
 
                 # Wait for completion with timeout
-                try:
-                    result = container.wait(timeout=timeout_seconds)
-                    exit_code = result.get("StatusCode", -1)
-                except Exception as timeout_error:
-                    # Timeout or other error - kill container
-                    container.kill()
-                    container.remove()
-                    return -1, "", f"Execution timeout ({timeout_seconds}s) or error: {str(timeout_error)}", []
+                # Story 8-3: If streaming enabled, stream logs during execution
+                if stream_logs and exec_id:
+                    import threading
+                    import queue
 
-                # Get logs
-                logs = container.logs(stdout=True, stderr=True)
-                output = logs.decode("utf-8") if isinstance(logs, bytes) else str(logs)
+                    result_queue = queue.Queue()
+
+                    def wait_for_container():
+                        try:
+                            result = container.wait(timeout=timeout_seconds)
+                            result_queue.put(("success", result))
+                        except Exception as e:
+                            result_queue.put(("error", e))
+
+                    # Start wait in background thread
+                    wait_thread = threading.Thread(target=wait_for_container)
+                    wait_thread.start()
+
+                    # Stream logs in main thread
+                    try:
+                        stdout_output, stderr_output = stream_container_logs(
+                            container, exec_id
+                        )
+                        output = stdout_output + stderr_output
+                    except Exception as stream_error:
+                        logger.warning(f"Log streaming failed: {stream_error}")
+                        # Fallback to getting logs after completion
+                        output = ""
+
+                    # Wait for container to finish
+                    wait_thread.join()
+                    try:
+                        status, result_or_error = result_queue.get_nowait()
+                        if status == "success":
+                            exit_code = result_or_error.get("StatusCode", -1)
+                        else:
+                            # Timeout or error
+                            container.kill()
+                            container.remove()
+                            return -1, "", f"Execution timeout ({timeout_seconds}s) or error: {str(result_or_error)}", []
+                    except queue.Empty:
+                        exit_code = -1
+
+                    # If streaming didn't capture output, get it now
+                    if not output:
+                        logs = container.logs(stdout=True, stderr=True)
+                        output = logs.decode("utf-8") if isinstance(logs, bytes) else str(logs)
+                else:
+                    # Original behavior: wait then get logs
+                    try:
+                        result = container.wait(timeout=timeout_seconds)
+                        exit_code = result.get("StatusCode", -1)
+                    except Exception as timeout_error:
+                        # Timeout or other error - kill container
+                        container.kill()
+                        container.remove()
+                        return -1, "", f"Execution timeout ({timeout_seconds}s) or error: {str(timeout_error)}", []
+
+                    # Get logs
+                    logs = container.logs(stdout=True, stderr=True)
+                    output = logs.decode("utf-8") if isinstance(logs, bytes) else str(logs)
 
                 # Clean up container
                 container.remove()
