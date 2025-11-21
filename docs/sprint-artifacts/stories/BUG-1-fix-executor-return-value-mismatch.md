@@ -1,6 +1,6 @@
 # Story BUG-1: Fix Executor Return Value Mismatch
 
-Status: ready-for-dev (P1 - Blocking job execution)
+Status: done
 
 ## Story
 
@@ -38,19 +38,25 @@ ValueError: too many values to unpack (expected 3)
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Rebuild and push Docker image with latest code
-  - [ ] Trigger GitHub Actions workflow to rebuild `ghcr.io/sna4ever/rgrid-worker:latest`
-  - [ ] Verify new image contains updated `worker.py` (line 156 should unpack 4 values)
-  - [ ] Wait for image to be available in GHCR
+- [x] Task 1: Rebuild and push Docker image with latest code
+  - [x] Commit the fix to `runner/runner/worker.py` line 156 (unpack 4 return values)
+  - [x] Trigger GitHub Actions workflow to rebuild `ghcr.io/sna4ever/rgrid-worker:latest`
+  - [x] Verify new image contains updated `worker.py` (line 156 should unpack 4 values)
+  - [x] Wait for image to be available in GHCR
 
-- [ ] Task 2: Test fix on staging
-  - [ ] Delete existing workers from Hetzner
-  - [ ] Submit test job to trigger new worker provisioning
-  - [ ] Verify worker pulls new image and executes jobs successfully
+- [x] Task 2: Test fix on staging
+  - [x] Delete existing workers from Hetzner
+  - [x] Submit test job to trigger new worker provisioning
+  - [x] Verify worker pulls new image and executes jobs successfully
 
-- [ ] Task 3: Cleanup
-  - [ ] Mark any stuck jobs as failed in database
-  - [ ] Delete old/zombie workers from database
+- [x] Task 3: Cleanup
+  - [x] Mark any stuck jobs as failed in database
+  - [x] Delete old/zombie workers from database
+
+- [x] Task 4: Additional fix for Docker-in-Docker volume mounting
+  - [x] Added `/tmp:/tmp` volume mount to worker container for shared temp file access
+  - [x] Deployed orchestrator update to staging
+  - [x] Verified job execution succeeds with both fixes
 
 ## Dev Notes
 
