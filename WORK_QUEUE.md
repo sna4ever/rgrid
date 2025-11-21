@@ -19,6 +19,7 @@ Stories are grouped by tier. Only claim stories whose dependencies are marked [D
 | [DONE] **5-3** | Batch progress tracking | Dev 1 | 4 |
 | [DONE] **5-4** | Organize batch outputs | Dev 2 | 4 |
 | [DONE] **5-5** | Handle batch failures | Dev 3 | 4 |
+| [DONE] **2-4** | Auto-detect Python deps | Dev 1 | 5 |
 
 ---
 
@@ -55,11 +56,11 @@ Stories are grouped by tier. Only claim stories whose dependencies are marked [D
 
 ---
 
-## Tier 5 Phase 4 - Dependencies (Can Start Now)
+## Tier 5 Phase 4 - Dependencies ✅ COMPLETE
 
 | Status | Story | Description | Depends On | Story File |
 |--------|-------|-------------|------------|------------|
-| [ ] | **2-4** | Auto-detect Python deps | None | `docs/sprint-artifacts/stories/2-4-auto-detect-and-install-python-dependencies.md` |
+| [DONE] | **2-4** | Auto-detect Python deps | None | `docs/sprint-artifacts/stories/2-4-auto-detect-and-install-python-dependencies.md` |
 
 ---
 
@@ -69,8 +70,31 @@ Stories are grouped by tier. Only claim stories whose dependencies are marked [D
 
 | Status | Story | Description | Depends On | Story File |
 |--------|-------|-------------|------------|------------|
-| [ ] | **6-1** | Script content hashing | 7-1 ✅ | `docs/sprint-artifacts/stories/6-1-implement-script-content-hashing-and-cache-lookup.md` |
+| [IN PROGRESS: Dev 2] | **6-1** | Script content hashing | 7-1 ✅ | `docs/sprint-artifacts/stories/6-1-implement-script-content-hashing-and-cache-lookup.md` |
 | [BLOCKED] | **6-2** | Dependency layer caching | 6-1 | `docs/sprint-artifacts/stories/6-2-implement-dependency-layer-caching.md` |
+
+---
+
+## Tier 5 Phase 6 - Advanced File Management
+
+**7-4 is [DONE] - 7-5 can start now!**
+
+| Status | Story | Description | Depends On | Story File |
+|--------|-------|-------------|------------|------------|
+| [IN PROGRESS: Dev 3] | **7-5** | Remote-only flag (skip download) | 7-4 ✅ | `docs/sprint-artifacts/stories/7-5-implement-remote-only-flag-to-skip-auto-download.md` |
+| [BLOCKED] | **7-6** | Large file streaming | 7-5 | `docs/sprint-artifacts/stories/7-6-implement-large-file-streaming-and-compression.md` |
+
+---
+
+## Tier 6 - Monitoring & UX (Epic 8)
+
+**No dependencies - can start now!**
+
+| Status | Story | Description | Depends On | Story File |
+|--------|-------|-------------|------------|------------|
+| [ ] | **8-1** | rgrid status command | Epic 2 ✅ | `docs/sprint-artifacts/stories/8-1-implement-rgrid-status-command.md` |
+| [ ] | **8-2** | rgrid logs command | Epic 2 ✅ | `docs/sprint-artifacts/stories/8-2-implement-rgrid-logs-command-with-historical-logs.md` |
+| [BLOCKED] | **8-3** | WebSocket log streaming | 8-2 | `docs/sprint-artifacts/stories/8-3-implement-websocket-log-streaming-for-real-time-logs.md` |
 
 ---
 
