@@ -35,8 +35,10 @@ class Execution(Base):
     started_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 
-    # Cost tracking
+    # Cost tracking (Epic 9)
     cost_micros: Mapped[int] = mapped_column(BigInteger, default=0)
+    finalized_cost_micros: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
+    cost_finalized_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 
     # Ray/worker tracking (Tier 4 - Story 3-3)
     ray_task_id: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
@@ -47,3 +49,8 @@ class Execution(Base):
 
     # Python dependency management (Story 2.4)
     requirements_content: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    # Execution metadata tracking (Story 8.6)
+    duration_seconds: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    worker_hostname: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
+    execution_metadata: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)

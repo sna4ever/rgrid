@@ -133,10 +133,13 @@ class Worker:
         logger.info(f"Processing {execution_id}: {job.runtime}")
 
         try:
+            # Track start time for duration calculation (Story 8.6)
+            started_at = datetime.utcnow()
+
             # Update status to running
             async with self.async_session_maker() as session:
                 await self.poller.update_status(
-                    session, execution_id, "running", started_at=datetime.utcnow()
+                    session, execution_id, "running", started_at=started_at
                 )
                 await session.commit()
 
@@ -178,6 +181,18 @@ class Worker:
             # Determine final status
             final_status = "completed" if exit_code == 0 else "failed"
 
+            # Calculate completion time and duration (Story 8.6)
+            completed_at = datetime.utcnow()
+            duration_seconds = int((completed_at - started_at).total_seconds())
+
+            # Build execution metadata (Story 8.6)
+            execution_metadata = {
+                "runtime": job.runtime,
+                "env_vars_count": str(len(job.env_vars or {})),
+                "input_files_count": str(len(job.input_files or [])),
+                "worker_id": self.worker_id,
+            }
+
             # Update database with results
             async with self.async_session_maker() as session:
                 await self.poller.update_execution_result(
@@ -188,11 +203,14 @@ class Worker:
                     stdout=stdout,
                     stderr=stderr,
                     output_truncated=output_truncated,
-                    completed_at=datetime.utcnow(),
+                    completed_at=completed_at,
+                    duration_seconds=duration_seconds,
+                    worker_hostname=self.hostname,
+                    execution_metadata=execution_metadata,
                 )
                 await session.commit()
 
-            logger.info(f"Completed {execution_id}: exit_code={exit_code}, status={final_status}")
+            logger.info(f"Completed {execution_id}: exit_code={exit_code}, status={final_status}, duration={duration_seconds}s")
 
         except Exception as e:
             logger.error(f"Error processing {execution_id}: {e}", exc_info=True)

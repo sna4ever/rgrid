@@ -105,6 +105,9 @@ class JobPoller:
         output_truncated: bool = False,
         execution_error: Optional[str] = None,
         completed_at: Optional[datetime] = None,
+        duration_seconds: Optional[int] = None,
+        worker_hostname: Optional[str] = None,
+        execution_metadata: Optional[dict] = None,
     ):
         """
         Update execution with results.
@@ -119,6 +122,9 @@ class JobPoller:
             output_truncated: Whether output was truncated
             execution_error: Error message if failed
             completed_at: Completion timestamp
+            duration_seconds: Execution duration in seconds (Story 8.6)
+            worker_hostname: Worker node hostname (Story 8.6)
+            execution_metadata: Extensible metadata dict (Story 8.6)
         """
         update_values = {"status": status}
 
@@ -134,6 +140,12 @@ class JobPoller:
             update_values["execution_error"] = execution_error
         if completed_at:
             update_values["completed_at"] = completed_at
+        if duration_seconds is not None:
+            update_values["duration_seconds"] = duration_seconds
+        if worker_hostname:
+            update_values["worker_hostname"] = worker_hostname
+        if execution_metadata:
+            update_values["execution_metadata"] = execution_metadata
 
         stmt = (
             update(Execution)

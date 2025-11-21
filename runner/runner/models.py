@@ -51,3 +51,8 @@ class Execution(Base):
 
     # Python dependency management (Story 2.4)
     requirements_content: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    # Execution metadata tracking (Story 8.6)
+    duration_seconds: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    worker_hostname: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
+    execution_metadata: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)

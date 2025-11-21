@@ -26,6 +26,7 @@ Stories are grouped by tier. Only claim stories whose dependencies are marked [D
 | [DONE] **7-6** | Large file streaming | Dev 3 | 6 |
 | [DONE] **8-2** | rgrid logs command | Dev 1 | 7 |
 | [DONE] **6-2** | Dependency layer caching | Dev 2 | 7 |
+| [DONE] **8-6** | Track execution metadata | Dev 3 | 8 |
 
 ---
 
@@ -94,13 +95,37 @@ Stories are grouped by tier. Only claim stories whose dependencies are marked [D
 
 ## Tier 6 - Monitoring & UX (Epic 8)
 
-**No dependencies - can start now!**
-
 | Status | Story | Description | Depends On | Story File |
 |--------|-------|-------------|------------|------------|
 | [DONE] | **8-1** | rgrid status command | Epic 2 ✅ | `docs/sprint-artifacts/stories/8-1-implement-rgrid-status-command.md` |
 | [DONE] | **8-2** | rgrid logs command | Epic 2 ✅ | `docs/sprint-artifacts/stories/8-2-implement-rgrid-logs-command-with-historical-logs.md` |
-| [ ] | **8-3** | WebSocket log streaming | 8-2 ✅ | `docs/sprint-artifacts/stories/8-3-implement-websocket-log-streaming-for-real-time-logs.md` |
+| [IN PROGRESS: Dev 2] | **8-3** | WebSocket log streaming | 8-2 ✅ | `docs/sprint-artifacts/stories/8-3-implement-websocket-log-streaming-for-real-time-logs.md` |
+| [BLOCKED] | **8-4** | CLI reconnection for WebSocket | 8-3 | `docs/sprint-artifacts/stories/8-4-implement-cli-reconnection-for-websocket-streams.md` |
+| [BLOCKED] | **8-5** | Batch progress with --watch | 5-3 ✅, 8-3 | `docs/sprint-artifacts/stories/8-5-implement-batch-progress-display-with-watch.md` |
+| [DONE] | **8-6** | Track execution metadata | Epic 2 ✅ | `docs/sprint-artifacts/stories/8-6-track-execution-metadata-in-database.md` |
+
+---
+
+## Tier 7 - Cost Tracking (Epic 9)
+
+**Epic 4 (worker provisioning) complete - can start now!**
+
+| Status | Story | Description | Depends On | Story File |
+|--------|-------|-------------|------------|------------|
+| [IN PROGRESS: Dev 1] | **9-1** | MICRONS cost calculation | Epic 4 ✅ | `docs/sprint-artifacts/stories/9-1-implement-microns-cost-calculation.md` |
+| [BLOCKED] | **9-2** | Billing hour cost amortization | 9-1 | `docs/sprint-artifacts/stories/9-2-implement-billing-hour-cost-amortization.md` |
+| [BLOCKED] | **9-3** | rgrid cost command | 9-1 | `docs/sprint-artifacts/stories/9-3-implement-rgrid-cost-command.md` |
+| [BLOCKED] | **9-4** | Cost estimation for batches | 9-1 | `docs/sprint-artifacts/stories/9-4-implement-cost-estimation-for-batch-executions.md` |
+
+---
+
+## Tier 8 - Error Handling & Retry (Epic 10 partial)
+
+| Status | Story | Description | Depends On | Story File |
+|--------|-------|-------------|------------|------------|
+| [ ] | **10-4** | Structured error handling | Epic 2 ✅ | `docs/sprint-artifacts/stories/10-4-implement-structured-error-handling-with-clear-messages.md` |
+| [ ] | **10-6** | Manual retry command | Epic 2 ✅ | `docs/sprint-artifacts/stories/10-6-implement-manual-retry-command.md` |
+| [BLOCKED] | **10-7** | Auto-retry transient failures | 10-6 | `docs/sprint-artifacts/stories/10-7-implement-auto-retry-for-transient-failures.md` |
 
 ---
 

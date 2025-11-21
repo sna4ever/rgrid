@@ -1,6 +1,6 @@
 # Story 8.6: Track Execution Metadata in Database
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 
@@ -21,10 +21,22 @@ So that I can audit and analyze execution history.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1 (AC: #1)
-  - [ ] Subtask 1.1
-- [ ] Task 2 (AC: #2)
-  - [ ] Subtask 2.1
+- [x] Task 1: Add metadata fields to database models (AC: #1-8)
+  - [x] Add duration_seconds, worker_hostname, execution_metadata to API Execution model
+  - [x] Add same fields to Runner Execution model
+  - [x] Add fields to ExecutionResponse Pydantic schema
+- [x] Task 2: Update runner to populate metadata (AC: #1-8)
+  - [x] Track started_at in worker.py for duration calculation
+  - [x] Calculate duration_seconds on completion
+  - [x] Pass worker_hostname to update_execution_result
+  - [x] Build execution_metadata with runtime info
+- [x] Task 3: Update status command display (AC: #6)
+  - [x] Display worker_hostname when available
+- [x] Task 4: Write comprehensive unit tests
+  - [x] Test model fields exist
+  - [x] Test schema serialization
+  - [x] Test poller accepts new parameters
+  - [x] Test status command displays metadata
 
 ## Dev Notes
 
@@ -50,16 +62,27 @@ Epic 2 complete
 
 ### Agent Model Used
 
-<!-- To be filled during implementation -->
+Claude Sonnet 4.5 (Dev 3)
 
 ### Debug Log References
 
-<!-- To be filled during implementation -->
+N/A - implementation complete
 
 ### Completion Notes List
 
-<!-- To be filled during implementation -->
+- Added duration_seconds, worker_hostname, execution_metadata fields to Execution models
+- Updated poller.update_execution_result() to accept new metadata parameters
+- Worker now calculates duration and populates metadata on execution completion
+- Status command displays worker_hostname when available
+- 22 unit tests written covering all acceptance criteria
+- All tests pass (32/33 with 1 pre-existing failure from Story 8-3)
 
 ### File List
 
-<!-- To be filled during implementation -->
+- api/app/models/execution.py - Added metadata fields
+- runner/runner/models.py - Added metadata fields
+- common/rgrid_common/models.py - Added fields to ExecutionResponse schema
+- runner/runner/poller.py - Updated update_execution_result() parameters
+- runner/runner/worker.py - Calculate and store metadata on completion
+- cli/rgrid/commands/status.py - Display worker_hostname
+- tests/unit/test_execution_metadata.py - New: 22 unit tests for Story 8.6

@@ -81,6 +81,10 @@ def status(execution_id: str) -> None:
             duration = (completed - started).total_seconds()
             table.add_row("Duration", f"{duration:.1f}s")
 
+        # Worker hostname (Story 8.6)
+        if result.get("worker_hostname"):
+            table.add_row("Worker", result["worker_hostname"])
+
         # Exit code
         if result.get("exit_code") is not None:
             exit_code = result["exit_code"]

@@ -76,8 +76,17 @@ class ExecutionResponse(ExecutionBase):
     started_at: Optional[datetime] = Field(None, description="Start timestamp")
     completed_at: Optional[datetime] = Field(None, description="Completion timestamp")
 
-    # Cost tracking
-    cost_micros: int = Field(default=0, ge=0, description="Cost in micros")
+    # Cost tracking (Epic 9)
+    cost_micros: int = Field(default=0, ge=0, description="Estimated cost in micros (1 EUR = 1,000,000 micros)")
+    finalized_cost_micros: Optional[int] = Field(None, ge=0, description="Finalized cost after billing hour amortization")
+    cost_finalized_at: Optional[datetime] = Field(None, description="When cost was finalized")
+
+    # Execution metadata tracking (Story 8.6)
+    duration_seconds: Optional[int] = Field(None, description="Execution duration in seconds")
+    worker_hostname: Optional[str] = Field(None, description="Worker node hostname")
+    execution_metadata: Optional[Dict[str, str]] = Field(
+        None, description="Extensible execution metadata (runtime_version, python_version, etc.)"
+    )
 
 
 class FileMetadata(BaseModel):
