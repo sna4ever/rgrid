@@ -19,7 +19,7 @@ class BatchResult:
     completed: int
     failed: int
     execution_ids: list[str]
-    failed_files: list[str] = field(default_factory=list)
+    failed_files: list[tuple[str, str]] = field(default_factory=list)  # (filename, error_msg)
     batch_id: str = ""
 
 
@@ -83,9 +83,9 @@ class BatchExecutor:
         total = len(files)
         semaphore = asyncio.Semaphore(self.max_parallel)
         execution_ids: list[str] = []
-        failed_files: list[str] = []
+        failed_files: list[tuple[str, str]] = []
 
-        async def process_file(file_path: str) -> tuple[str | None, str | None]:
+        async def process_file(file_path: str) -> tuple[str | None, tuple[str, str] | None]:
             """Process a single file with semaphore control."""
             async with semaphore:
                 try:
@@ -107,7 +107,7 @@ class BatchExecutor:
                             self._progress_callback(
                                 self._completed, self._failed, total, running
                             )
-                    return None, file_path
+                    return None, (file_path, str(e))
 
         # Execute all files concurrently with semaphore control
         tasks = [process_file(f) for f in files]

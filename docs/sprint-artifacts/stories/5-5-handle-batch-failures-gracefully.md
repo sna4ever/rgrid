@@ -1,6 +1,6 @@
 # Story 5.5: Handle Batch Failures Gracefully
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 
