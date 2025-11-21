@@ -25,6 +25,7 @@ Stories are grouped by tier. Only claim stories whose dependencies are marked [D
 | [DONE] **8-1** | rgrid status command | Dev 1 | 6 |
 | [DONE] **7-6** | Large file streaming | Dev 3 | 6 |
 | [DONE] **8-2** | rgrid logs command | Dev 1 | 7 |
+| [DONE] **6-2** | Dependency layer caching | Dev 2 | 7 |
 
 ---
 
@@ -69,14 +70,14 @@ Stories are grouped by tier. Only claim stories whose dependencies are marked [D
 
 ---
 
-## Tier 5 Phase 5 - Caching
+## Tier 5 Phase 5 - Caching ✅ COMPLETE
 
-**6-1 is [DONE] - 6-2 can start now!**
+**Goal**: Script and dependency caching for instant repeat executions - **ACHIEVED!**
 
 | Status | Story | Description | Depends On | Story File |
 |--------|-------|-------------|------------|------------|
 | [DONE] | **6-1** | Script content hashing | 7-1 ✅ | `docs/sprint-artifacts/stories/6-1-implement-script-content-hashing-and-cache-lookup.md` |
-| [IN PROGRESS: Dev 2] | **6-2** | Dependency layer caching | 6-1 ✅ | `docs/sprint-artifacts/stories/6-2-implement-dependency-layer-caching.md` |
+| [DONE] | **6-2** | Dependency layer caching | 6-1 ✅ | `docs/sprint-artifacts/stories/6-2-implement-dependency-layer-caching.md` |
 
 ---
 
