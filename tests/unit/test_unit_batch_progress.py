@@ -205,3 +205,78 @@ class TestTimeFormatting:
 
         assert format_time(3665) == "1h 1m 5s"
         assert format_time(7200) == "2h 0m 0s"
+
+
+class TestProgressBarRendering:
+    """Test visual progress bar rendering."""
+
+    def test_progress_bar_empty(self):
+        """Progress bar at 0% should be empty."""
+        from cli.rgrid.batch_progress import render_progress_bar
+
+        bar = render_progress_bar(0, width=10)
+        assert bar == "[          ]"
+
+    def test_progress_bar_full(self):
+        """Progress bar at 100% should be completely filled."""
+        from cli.rgrid.batch_progress import render_progress_bar
+
+        bar = render_progress_bar(100, width=10)
+        assert bar == "[==========]"
+
+    def test_progress_bar_half(self):
+        """Progress bar at 50% should be half filled with arrow."""
+        from cli.rgrid.batch_progress import render_progress_bar
+
+        bar = render_progress_bar(50, width=10)
+        assert bar == "[====>     ]"
+
+    def test_progress_bar_partial(self):
+        """Progress bar at 30% should show correct fill."""
+        from cli.rgrid.batch_progress import render_progress_bar
+
+        bar = render_progress_bar(30, width=10)
+        assert bar == "[==>       ]"
+
+    def test_progress_bar_negative_clamped(self):
+        """Negative percentage should be clamped to 0."""
+        from cli.rgrid.batch_progress import render_progress_bar
+
+        bar = render_progress_bar(-10, width=10)
+        assert bar == "[          ]"
+
+    def test_progress_bar_over_100_clamped(self):
+        """Percentage over 100 should be clamped to 100."""
+        from cli.rgrid.batch_progress import render_progress_bar
+
+        bar = render_progress_bar(150, width=10)
+        assert bar == "[==========]"
+
+    def test_progress_bar_default_width(self):
+        """Default width should be 40."""
+        from cli.rgrid.batch_progress import render_progress_bar
+
+        bar = render_progress_bar(50)
+        # Default width is 40, plus 2 brackets = 42 chars total
+        assert len(bar) == 42
+        assert bar.startswith("[")
+        assert bar.endswith("]")
+
+    def test_progress_bar_in_colored_output(self):
+        """Progress bar should appear in colored output."""
+        from cli.rgrid.batch_progress import format_progress_with_colors
+
+        progress = {
+            "completed": 50,
+            "failed": 0,
+            "running": 10,
+            "queued": 40,
+            "total": 100,
+            "percentage": 50.0
+        }
+
+        output = format_progress_with_colors(progress, 120)
+        # Should contain the progress bar characters
+        assert "[" in output
+        assert "]" in output
+        assert ">" in output or "=" in output

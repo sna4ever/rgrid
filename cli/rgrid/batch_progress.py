@@ -75,6 +75,36 @@ def calculate_eta(completed_count: int, total_count: int, elapsed_seconds: float
     return avg_time_per_job * remaining_jobs
 
 
+def render_progress_bar(percentage: float, width: int = 40) -> str:
+    """Render a visual progress bar.
+
+    Args:
+        percentage: Progress percentage (0-100)
+        width: Width of the progress bar in characters (default 40)
+
+    Returns:
+        Progress bar string like "[=========>          ]"
+    """
+    if percentage < 0:
+        percentage = 0
+    elif percentage > 100:
+        percentage = 100
+
+    # Calculate filled portion
+    filled = int(width * percentage / 100)
+    remaining = width - filled
+
+    # Build bar with arrow at the progress point
+    if filled > 0 and remaining > 0:
+        bar = "=" * (filled - 1) + ">" + " " * remaining
+    elif filled == width:
+        bar = "=" * width
+    else:
+        bar = " " * width
+
+    return f"[{bar}]"
+
+
 def format_time(seconds: float) -> str:
     """Format seconds into human-readable time string.
 
@@ -135,19 +165,20 @@ def format_progress(progress: Dict, eta_seconds: Optional[float]) -> str:
 
 
 def format_progress_with_colors(progress: Dict, eta_seconds: Optional[float]) -> str:
-    """Format progress with ANSI color codes.
+    """Format progress with ANSI color codes and visual progress bar.
 
     Args:
         progress: Progress dictionary from calculate_progress()
         eta_seconds: Estimated seconds to completion, or None
 
     Returns:
-        Formatted progress string with colors
+        Formatted progress string with colors and progress bar
     """
     # ANSI color codes
     GREEN = "\033[32m"
     RED = "\033[31m"
     YELLOW = "\033[33m"
+    CYAN = "\033[36m"
     RESET = "\033[0m"
 
     completed = progress["completed"]
@@ -157,8 +188,11 @@ def format_progress_with_colors(progress: Dict, eta_seconds: Optional[float]) ->
     total = progress["total"]
     percentage = progress["percentage"]
 
-    # Build colored progress string
-    progress_str = f"Progress: {completed}/{total} ({percentage:.1f}%)"
+    # Render visual progress bar
+    bar = render_progress_bar(percentage, width=30)
+
+    # Build colored progress string with bar
+    progress_str = f"{CYAN}{bar}{RESET} {completed}/{total} ({percentage:.1f}%)"
 
     # Add ETA if available
     if eta_seconds is not None:
@@ -172,9 +206,6 @@ def format_progress_with_colors(progress: Dict, eta_seconds: Optional[float]) ->
 
     if failed > 0:
         progress_str += f", {RED}Failed: {failed}{RESET}"
-
-    if completed > 0:
-        progress_str += f", {GREEN}Succeeded: {completed}{RESET}"
 
     return progress_str
 
