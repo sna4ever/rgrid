@@ -29,6 +29,8 @@ class OrchestratorDaemon:
         database_url: str,
         hetzner_api_token: str,
         hetzner_ssh_key_path: str,
+        network_id: Optional[int] = None,
+        private_db_ip: Optional[str] = None,
     ):
         """
         Initialize orchestrator daemon.
@@ -37,15 +39,20 @@ class OrchestratorDaemon:
             database_url: Database connection string
             hetzner_api_token: Hetzner Cloud API token
             hetzner_ssh_key_path: Path to SSH private key
+            network_id: Optional Hetzner private network ID
+            private_db_ip: Optional private IP for database
         """
         self.database_url = database_url
         self.hetzner_api_token = hetzner_api_token
         self.hetzner_ssh_key_path = hetzner_ssh_key_path
+        self.network_id = network_id
+        self.private_db_ip = private_db_ip
 
         # Components
         self.health_monitor = WorkerHealthMonitor(database_url)
         self.provisioner = WorkerProvisioner(
-            database_url, hetzner_api_token, hetzner_ssh_key_path
+            database_url, hetzner_api_token, hetzner_ssh_key_path,
+            network_id=network_id, private_db_ip=private_db_ip
         )
         self.lifecycle_manager = WorkerLifecycleManager(
             database_url, hetzner_api_token
@@ -116,6 +123,8 @@ async def main():
     database_url = os.getenv("DATABASE_URL")
     hetzner_api_token = os.getenv("HETZNER_API_TOKEN")
     hetzner_ssh_key_path = os.getenv("HETZNER_SSH_KEY_PATH")
+    network_id = os.getenv("RGRID_NETWORK_ID")  # Optional
+    private_db_ip = os.getenv("RGRID_PRIVATE_DB_IP")  # Optional (e.g., "10.0.1.2")
 
     if not database_url:
         logger.error("DATABASE_URL not set")
@@ -129,11 +138,22 @@ async def main():
         logger.error("HETZNER_SSH_KEY_PATH not set")
         sys.exit(1)
 
+    # Parse network_id to int if provided
+    network_id_int = int(network_id) if network_id else None
+
+    # Log network configuration
+    if network_id_int and private_db_ip:
+        logger.info(f"Private network enabled (Network ID: {network_id_int}, DB IP: {private_db_ip})")
+    else:
+        logger.warning("Private network NOT configured - workers will use public database access")
+
     # Create daemon
     daemon = OrchestratorDaemon(
         database_url=database_url,
         hetzner_api_token=hetzner_api_token,
         hetzner_ssh_key_path=hetzner_ssh_key_path,
+        network_id=network_id_int,
+        private_db_ip=private_db_ip,
     )
 
     # Handle signals

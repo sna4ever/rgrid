@@ -22,7 +22,14 @@ WORKER_CONCURRENT_JOBS = 2  # Jobs per worker
 class WorkerProvisioner:
     """Manages worker provisioning based on queue depth."""
 
-    def __init__(self, database_url: str, hetzner_api_token: str, ssh_key_path: str):
+    def __init__(
+        self,
+        database_url: str,
+        hetzner_api_token: str,
+        ssh_key_path: str,
+        network_id: Optional[int] = None,
+        private_db_ip: Optional[str] = None
+    ):
         """
         Initialize provisioner.
 
@@ -30,10 +37,14 @@ class WorkerProvisioner:
             database_url: Database connection string
             hetzner_api_token: Hetzner Cloud API token
             ssh_key_path: Path to SSH private key
+            network_id: Optional Hetzner private network ID
+            private_db_ip: Optional private IP for database (e.g., 10.0.1.2)
         """
         self.database_url = database_url
         self.hetzner_client = HetznerClient(hetzner_api_token)
         self.ssh_key_path = ssh_key_path
+        self.network_id = network_id
+        self.private_db_ip = private_db_ip
         self.engine = create_async_engine(database_url, echo=False)
         self.async_session_maker = async_sessionmaker(
             self.engine, class_=AsyncSession, expire_on_commit=False
@@ -185,6 +196,8 @@ class WorkerProvisioner:
             user_data = self._generate_cloud_init(worker_id)
 
             # Create server via Hetzner API
+            networks = [self.network_id] if self.network_id else None
+
             response = await self.hetzner_client.create_server(
                 name=server_name,
                 ssh_key_id=self._ssh_key_id,
@@ -194,6 +207,7 @@ class WorkerProvisioner:
                     "worker_id": worker_id,
                     "role": "worker",
                 },
+                networks=networks,
             )
 
             server = response["server"]
@@ -268,6 +282,16 @@ class WorkerProvisioner:
         """
         # Get database URL (convert to sync for worker)
         db_url = self.database_url.replace("postgresql+asyncpg://", "postgresql://")
+
+        # Use private network IP if available, otherwise public IP
+        if self.private_db_ip:
+            # Private network - use private IP (secure, no internet exposure)
+            db_url = db_url.replace("localhost", self.private_db_ip)
+            logger.info(f"Using private network IP for database: {self.private_db_ip}")
+        else:
+            # Fallback to public IP (less secure, for testing only)
+            db_url = db_url.replace("localhost", "46.62.246.120")
+            logger.warning("No private network configured - using public IP for database")
 
         return f"""#cloud-config
 package_update: true

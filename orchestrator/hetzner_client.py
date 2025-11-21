@@ -37,6 +37,7 @@ class HetznerClient:
         ssh_key_id: int,
         user_data: str,
         labels: Optional[Dict[str, str]] = None,
+        networks: Optional[List[int]] = None,
     ) -> Dict[str, Any]:
         """
         Create a new server.
@@ -46,6 +47,7 @@ class HetznerClient:
             ssh_key_id: SSH key ID
             user_data: Cloud-init user data
             labels: Optional server labels
+            networks: Optional list of network IDs to attach
 
         Returns:
             Server creation response
@@ -66,6 +68,10 @@ class HetznerClient:
             "automount": False,
             "start_after_create": True,
         }
+
+        # Add networks if provided
+        if networks:
+            payload["networks"] = networks
 
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(url, json=payload, headers=self.headers)
@@ -219,3 +225,118 @@ class HetznerClient:
                 return response.json()["metrics"]
             else:
                 return None
+
+    # Private Network Methods
+
+    async def create_network(
+        self,
+        name: str,
+        ip_range: str = "10.0.0.0/16",
+        subnets: Optional[List[Dict[str, Any]]] = None,
+        labels: Optional[Dict[str, str]] = None,
+    ) -> Dict[str, Any]:
+        """
+        Create a private network.
+
+        Args:
+            name: Network name
+            ip_range: Network IP range (CIDR notation)
+            subnets: Optional list of subnets
+            labels: Optional network labels
+
+        Returns:
+            Network creation response
+        """
+        url = f"{HETZNER_API_BASE}/networks"
+
+        # Default subnet if none provided
+        if subnets is None:
+            subnets = [
+                {
+                    "type": "cloud",
+                    "ip_range": "10.0.1.0/24",
+                    "network_zone": "eu-central",
+                }
+            ]
+
+        payload = {
+            "name": name,
+            "ip_range": ip_range,
+            "subnets": subnets,
+            "labels": labels or {},
+        }
+
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(url, json=payload, headers=self.headers)
+
+            if response.status_code == 201:
+                data = response.json()
+                logger.info(f"Network {name} created successfully (ID: {data['network']['id']})")
+                return data
+            else:
+                error = response.json()
+                logger.error(f"Failed to create network {name}: {error}")
+                raise Exception(f"Hetzner API error: {error.get('error', {}).get('message', 'Unknown error')}")
+
+    async def get_networks(self, name: Optional[str] = None) -> List[Dict[str, Any]]:
+        """
+        Get all networks, optionally filtered by name.
+
+        Args:
+            name: Optional network name filter
+
+        Returns:
+            List of networks
+        """
+        url = f"{HETZNER_API_BASE}/networks"
+
+        params = {}
+        if name:
+            params["name"] = name
+
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.get(url, headers=self.headers, params=params)
+
+            if response.status_code == 200:
+                return response.json()["networks"]
+            else:
+                logger.error(f"Failed to list networks: {response.text}")
+                return []
+
+    async def attach_server_to_network(
+        self,
+        network_id: int,
+        server_id: int,
+        ip: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Attach a server to a private network.
+
+        Args:
+            network_id: Network ID
+            server_id: Server ID
+            ip: Optional specific IP address (auto-assigned if None)
+
+        Returns:
+            Action response
+        """
+        url = f"{HETZNER_API_BASE}/servers/{server_id}/actions/attach_to_network"
+
+        payload = {
+            "network": network_id,
+        }
+
+        if ip:
+            payload["ip"] = ip
+
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(url, json=payload, headers=self.headers)
+
+            if response.status_code == 201:
+                data = response.json()
+                logger.info(f"Server {server_id} attached to network {network_id}")
+                return data
+            else:
+                error = response.json()
+                logger.error(f"Failed to attach server {server_id} to network {network_id}: {error}")
+                raise Exception(f"Hetzner API error: {error.get('error', {}).get('message', 'Unknown error')}")
