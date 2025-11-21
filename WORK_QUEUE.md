@@ -21,6 +21,7 @@ Stories are grouped by tier. Only claim stories whose dependencies are marked [D
 | [DONE] **5-5** | Handle batch failures | Dev 3 | 4 |
 | [DONE] **2-4** | Auto-detect Python deps | Dev 1 | 5 |
 | [DONE] **7-5** | Remote-only flag (skip download) | Dev 3 | 5 |
+| [DONE] **6-1** | Script content hashing | Dev 2 | 5 |
 | [DONE] **8-1** | rgrid status command | Dev 1 | 6 |
 
 ---
@@ -66,14 +67,14 @@ Stories are grouped by tier. Only claim stories whose dependencies are marked [D
 
 ---
 
-## Tier 5 Phase 5 - Caching (Partially Unblocked)
+## Tier 5 Phase 5 - Caching
 
-**7-1 is [DONE] - 6-1 can start. 6-2 waits for 6-1.**
+**6-1 is [DONE] - 6-2 can start now!**
 
 | Status | Story | Description | Depends On | Story File |
 |--------|-------|-------------|------------|------------|
-| [IN PROGRESS: Dev 2] | **6-1** | Script content hashing | 7-1 ✅ | `docs/sprint-artifacts/stories/6-1-implement-script-content-hashing-and-cache-lookup.md` |
-| [BLOCKED] | **6-2** | Dependency layer caching | 6-1 | `docs/sprint-artifacts/stories/6-2-implement-dependency-layer-caching.md` |
+| [DONE] | **6-1** | Script content hashing | 7-1 ✅ | `docs/sprint-artifacts/stories/6-1-implement-script-content-hashing-and-cache-lookup.md` |
+| [ ] | **6-2** | Dependency layer caching | 6-1 ✅ | `docs/sprint-artifacts/stories/6-2-implement-dependency-layer-caching.md` |
 
 ---
 
@@ -84,7 +85,7 @@ Stories are grouped by tier. Only claim stories whose dependencies are marked [D
 | Status | Story | Description | Depends On | Story File |
 |--------|-------|-------------|------------|------------|
 | [DONE] | **7-5** | Remote-only flag (skip download) | 7-4 ✅ | `docs/sprint-artifacts/stories/7-5-implement-remote-only-flag-to-skip-auto-download.md` |
-| [ ] | **7-6** | Large file streaming | 7-5 ✅ | `docs/sprint-artifacts/stories/7-6-implement-large-file-streaming-and-compression.md` |
+| [IN PROGRESS: Dev 3] | **7-6** | Large file streaming | 7-5 ✅ | `docs/sprint-artifacts/stories/7-6-implement-large-file-streaming-and-compression.md` |
 
 ---
 
