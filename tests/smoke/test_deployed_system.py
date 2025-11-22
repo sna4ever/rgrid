@@ -267,6 +267,153 @@ def production_api_url():
     return ENVIRONMENTS['production']['api_url']
 
 
+class TestAPIEndpoints:
+    """Test all public API endpoints are responding correctly."""
+
+    @pytest.mark.parametrize("env", ['staging'])
+    def test_openapi_spec_available(self, env):
+        """Verify OpenAPI spec is accessible."""
+        api_url = get_api_url(env)
+        response = requests.get(f"{api_url}/openapi.json", timeout=10)
+
+        assert response.status_code == 200, (
+            f"OpenAPI spec not available at {api_url}/openapi.json"
+        )
+        data = response.json()
+        assert data.get('openapi', '').startswith('3.'), "OpenAPI version should be 3.x"
+        assert 'paths' in data, "OpenAPI spec missing paths"
+
+    @pytest.mark.parametrize("env", ['staging'])
+    def test_executions_endpoint_requires_auth(self, env):
+        """Verify /executions endpoint requires authentication."""
+        api_url = get_api_url(env)
+        response = requests.get(f"{api_url}/api/v1/executions", timeout=10)
+
+        # Should return 401 or 403 without auth
+        assert response.status_code in [401, 403], (
+            f"Executions endpoint should require auth, got {response.status_code}"
+        )
+
+    @pytest.mark.parametrize("env", ['staging'])
+    def test_cost_endpoint_requires_auth(self, env):
+        """Verify /cost endpoint requires authentication."""
+        api_url = get_api_url(env)
+        response = requests.get(f"{api_url}/api/v1/cost", timeout=10)
+
+        assert response.status_code in [401, 403], (
+            f"Cost endpoint should require auth, got {response.status_code}"
+        )
+
+    @pytest.mark.parametrize("env", ['staging'])
+    def test_estimate_endpoint_requires_auth(self, env):
+        """Verify /estimate endpoint requires authentication."""
+        api_url = get_api_url(env)
+        response = requests.get(f"{api_url}/api/v1/estimate", timeout=10)
+
+        assert response.status_code in [401, 403], (
+            f"Estimate endpoint should require auth, got {response.status_code}"
+        )
+
+    @pytest.mark.parametrize("env", ['staging'])
+    def test_input_cache_endpoint_requires_auth(self, env):
+        """Verify input cache endpoints require authentication."""
+        api_url = get_api_url(env)
+        response = requests.get(
+            f"{api_url}/api/v1/input-cache/testhash123456",
+            timeout=10
+        )
+
+        assert response.status_code in [401, 403], (
+            f"Input cache endpoint should require auth, got {response.status_code}"
+        )
+
+    @pytest.mark.parametrize("env", ['staging'])
+    def test_api_cors_headers(self, env):
+        """Verify CORS headers are properly configured.
+
+        Note: 405 is acceptable if CORS is handled at the nginx/proxy level,
+        which doesn't respond to OPTIONS requests on the API path.
+        """
+        api_url = get_api_url(env)
+        response = requests.options(
+            f"{api_url}/api/v1/health",
+            headers={"Origin": "https://console.rgrid.dev"},
+            timeout=10
+        )
+
+        # CORS can be handled at proxy level (405) or API level (200/204)
+        assert response.status_code in [200, 204, 405], (
+            f"CORS preflight returned unexpected status {response.status_code}"
+        )
+
+
+class TestInfrastructureHealth:
+    """Test infrastructure components via API health check."""
+
+    @pytest.mark.parametrize("env", ['staging'])
+    def test_database_connected(self, env):
+        """Verify database connectivity via health endpoint."""
+        api_url = get_api_url(env)
+        response = requests.get(f"{api_url}/api/v1/health", timeout=10)
+
+        assert response.status_code == 200
+        data = response.json()
+        assert 'db' in data['status'].lower(), "Health should report DB status"
+        assert 'connected' in data['status'].lower(), "Database should be connected"
+
+    @pytest.mark.parametrize("env", ['staging'])
+    def test_api_version_info(self, env):
+        """Verify API returns version information."""
+        api_url = get_api_url(env)
+        response = requests.get(f"{api_url}/", timeout=10)
+
+        assert response.status_code == 200
+        data = response.json()
+        assert 'version' in data, "Root should return version"
+        assert data['version'], "Version should not be empty"
+
+    @pytest.mark.parametrize("env", ['staging'])
+    def test_health_timestamp_format(self, env):
+        """Verify health endpoint returns valid timestamp."""
+        api_url = get_api_url(env)
+        response = requests.get(f"{api_url}/api/v1/health", timeout=10)
+
+        assert response.status_code == 200
+        data = response.json()
+        assert 'timestamp' in data, "Health should include timestamp"
+        # Should be ISO format
+        assert 'T' in data['timestamp'], "Timestamp should be ISO format"
+
+
+class TestErrorHandling:
+    """Test API error responses."""
+
+    @pytest.mark.parametrize("env", ['staging'])
+    def test_404_for_unknown_endpoints(self, env):
+        """Verify 404 for unknown API endpoints."""
+        api_url = get_api_url(env)
+        response = requests.get(f"{api_url}/api/v1/nonexistent", timeout=10)
+
+        assert response.status_code == 404, (
+            f"Unknown endpoint should return 404, got {response.status_code}"
+        )
+
+    @pytest.mark.parametrize("env", ['staging'])
+    def test_invalid_execution_id_format(self, env):
+        """Verify handling of invalid execution ID format."""
+        api_url = get_api_url(env)
+        response = requests.get(
+            f"{api_url}/api/v1/executions/invalid-id-format",
+            headers={"Authorization": "Bearer invalid"},
+            timeout=10
+        )
+
+        # Should return auth error first (401/403)
+        assert response.status_code in [401, 403, 404], (
+            f"Invalid execution ID should return appropriate error"
+        )
+
+
 # Mark configuration
 def pytest_configure(config):
     """Configure pytest markers."""

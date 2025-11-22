@@ -224,30 +224,36 @@ export default function ExecutionDetailPage() {
       )}
 
       {/* Artifacts */}
-      {artifacts.length > 0 && (
+      {(artifacts.length > 0 || execution.status === 'completed') && (
         <div className="mb-8">
           <h2 className="text-lg font-semibold mb-4">Output Artifacts</h2>
-          <div className="bg-gray-800 rounded-xl divide-y divide-gray-700">
-            {artifacts.map((artifact) => (
-              <div
-                key={artifact.artifact_id}
-                className="flex items-center justify-between px-4 py-3"
-              >
-                <div>
-                  <p className="text-white font-medium">{artifact.filename}</p>
-                  <p className="text-gray-400 text-sm">
-                    {formatFileSize(artifact.size_bytes)} &middot; {artifact.content_type}
-                  </p>
-                </div>
-                <button
-                  onClick={() => handleDownload(artifact)}
-                  className="px-4 py-2 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 rounded-lg text-sm font-medium transition-colors"
+          {artifacts.length > 0 ? (
+            <div className="bg-gray-800 rounded-xl divide-y divide-gray-700">
+              {artifacts.map((artifact) => (
+                <div
+                  key={artifact.artifact_id}
+                  className="flex items-center justify-between px-4 py-3"
                 >
-                  Download
-                </button>
-              </div>
-            ))}
-          </div>
+                  <div>
+                    <p className="text-white font-medium">{artifact.filename}</p>
+                    <p className="text-gray-400 text-sm">
+                      {formatFileSize(artifact.size_bytes)} &middot; {artifact.content_type}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => handleDownload(artifact)}
+                    className="px-4 py-2 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 rounded-lg text-sm font-medium transition-colors"
+                  >
+                    Download
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="bg-gray-800 rounded-xl p-8 text-center">
+              <p className="text-gray-400">No output files</p>
+            </div>
+          )}
         </div>
       )}
 

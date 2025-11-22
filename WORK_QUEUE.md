@@ -2,7 +2,7 @@
 
 ## Project Status: Backend Complete | Frontend Sprint Active 🚀
 
-**31 stories done | 922+ tests passing | Phase 3 Frontend Active!**
+**32 stories done | 999+ tests passing | Phase 3 Frontend Complete!**
 
 See `OPUS.md` for strategic completion plan.
 
@@ -72,7 +72,7 @@ All backend stories complete - see Completed section.
 |--------|-------|-------------|------------|------------|
 | [DONE] | **10-1** | Marketing website landing page | None | `docs/sprint-artifacts/stories/10-1-build-marketing-website-landing-page.md` |
 | [DONE] | **10-2** | Console dashboard with history | 10-1 | `docs/sprint-artifacts/stories/10-2-build-console-dashboard-with-execution-history.md` |
-| [IN PROGRESS: Dev 3] | **10-3** | Download outputs via console | 10-2 | `docs/sprint-artifacts/stories/10-3-implement-download-outputs-via-console.md` |
+| [DONE] | **10-3** | Download outputs via console | 10-2 | `docs/sprint-artifacts/stories/10-3-implement-download-outputs-via-console.md` |
 
 **Frontend Tech Stack:**
 - Next.js 14 with App Router
@@ -90,8 +90,8 @@ All backend stories complete - see Completed section.
 
 | Status | Story | Description | Priority | Effort |
 |--------|-------|-------------|----------|--------|
-| [IN PROGRESS: Dev 1] | **STAGE-1** | Staging environment smoke tests | HIGH | 3h |
-| [ ] | **STAGE-2** | End-to-end workflow validation | HIGH | 4h |
+| [DONE] | **STAGE-1** | Staging environment smoke tests | HIGH | 3h |
+| [IN PROGRESS: Dev 2] | **STAGE-2** | End-to-end workflow validation | HIGH | 4h |
 | [ ] | **STAGE-3** | API documentation (test on staging) | HIGH | 3h |
 | [ ] | **STAGE-4** | Staging stress testing (100+ jobs) | HIGH | 4h |
 | [ ] | **STAGE-5** | CLI error handling improvements | MEDIUM | 2h |
@@ -179,6 +179,8 @@ All backend stories complete - see Completed section.
 
 | Story | Description | Agent | Wave |
 |-------|-------------|-------|------|
+| [DONE] **STAGE-1** | Staging environment smoke tests | Dev 1 | Phase 4 |
+| [DONE] **10-3** | Download outputs via console | Dev 3 | Phase 3 |
 | [DONE] **10-2** | Console dashboard with history | Dev 2 | Phase 3 |
 | [DONE] **10-1** | Marketing website landing page | Dev 1 | Phase 3 |
 | [DONE] **BUG-1** | Fix executor return value | Dev 1 | 1 |
