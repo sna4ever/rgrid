@@ -33,6 +33,7 @@ Stories are grouped by tier. Only claim stories whose dependencies are marked [D
 | [DONE] **9-2** | Billing hour cost amortization | Dev 1 | 9 |
 | [DONE] **9-3** | rgrid cost command | Dev 3 | 9 |
 | [DONE] **9-4** | Cost estimation for batches | Dev 3 | 10 |
+| [DONE] **8-5** | Batch progress with --watch | Dev 2 | 10 |
 
 ---
 
@@ -99,7 +100,9 @@ Stories are grouped by tier. Only claim stories whose dependencies are marked [D
 
 ---
 
-## Tier 6 - Monitoring & UX (Epic 8)
+## Tier 6 - Monitoring & UX (Epic 8) ✅ COMPLETE
+
+**Goal**: Full observability with status, logs, and progress monitoring - **ACHIEVED!**
 
 | Status | Story | Description | Depends On | Story File |
 |--------|-------|-------------|------------|------------|
@@ -107,7 +110,7 @@ Stories are grouped by tier. Only claim stories whose dependencies are marked [D
 | [DONE] | **8-2** | rgrid logs command | Epic 2 ✅ | `docs/sprint-artifacts/stories/8-2-implement-rgrid-logs-command-with-historical-logs.md` |
 | [DONE] | **8-3** | WebSocket log streaming | 8-2 ✅ | `docs/sprint-artifacts/stories/8-3-implement-websocket-log-streaming-for-real-time-logs.md` |
 | [DONE] | **8-4** | CLI reconnection for WebSocket | 8-3 ✅ | `docs/sprint-artifacts/stories/8-4-implement-cli-reconnection-for-websocket-streams.md` |
-| [IN PROGRESS: Dev 2] | **8-5** | Batch progress with --watch | 5-3 ✅, 8-3 ✅ | `docs/sprint-artifacts/stories/8-5-implement-batch-progress-display-with-watch.md` |
+| [DONE] | **8-5** | Batch progress with --watch | 5-3 ✅, 8-3 ✅ | `docs/sprint-artifacts/stories/8-5-implement-batch-progress-display-with-watch.md` |
 | [DONE] | **8-6** | Track execution metadata | Epic 2 ✅ | `docs/sprint-artifacts/stories/8-6-track-execution-metadata-in-database.md` |
 
 ---

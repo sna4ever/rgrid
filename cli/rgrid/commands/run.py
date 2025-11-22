@@ -15,6 +15,11 @@ from rgrid.batch_executor import BatchExecutor
 from rgrid.batch_download import download_batch_outputs
 from rgrid.downloader import wait_for_completion, download_outputs
 from rgrid_common.runtimes import resolve_runtime
+from rgrid.errors import (
+    display_error,
+    create_validation_error,
+    format_failed_execution,
+)
 
 console = Console()
 
@@ -66,7 +71,11 @@ def run(script: str, args: tuple[str, ...], runtime: str | None, env: tuple[str,
     try:
         script_content = script_path.read_text()
     except Exception as e:
-        console.print(f"[red]Error reading script:[/red] {e}")
+        error = create_validation_error(
+            f"Could not read script file: {e}",
+            file_path=str(script_path),
+        )
+        display_error(error)
         raise click.Abort()
 
     # Story 6-2: Detect requirements.txt for dependency caching
@@ -87,8 +96,16 @@ def run(script: str, args: tuple[str, ...], runtime: str | None, env: tuple[str,
     env_vars = {}
     for env_var in env:
         if "=" not in env_var:
-            console.print(f"[red]Invalid env var format:[/red] {env_var}")
-            console.print("Expected format: KEY=VALUE")
+            error = create_validation_error(
+                "Invalid environment variable format",
+                param="--env",
+                value=env_var,
+            )
+            error.suggestions = [
+                "Use format: KEY=VALUE",
+                "Example: --env API_KEY=abc123",
+            ]
+            display_error(error)
             raise click.Abort()
         key, value = env_var.split("=", 1)
         env_vars[key] = value
@@ -97,7 +114,16 @@ def run(script: str, args: tuple[str, ...], runtime: str | None, env: tuple[str,
     try:
         validate_file_args(list(args))
     except FileNotFoundError as e:
-        console.print(f"[red]Error:[/red] {e}")
+        error = create_validation_error(
+            str(e),
+            file_path=str(e.filename) if hasattr(e, 'filename') and e.filename else None,
+        )
+        error.suggestions = [
+            "Check the file path is correct",
+            "Ensure the file exists in the current directory",
+            "Use absolute paths if needed",
+        ]
+        display_error(error)
         raise click.Abort()
 
     # Detect file arguments (Tier 4 - Story 2-5)
@@ -276,9 +302,15 @@ def run(script: str, args: tuple[str, ...], runtime: str | None, env: tuple[str,
                         console.print(f"[green]✓[/green] Execution completed successfully")
                         download_outputs(client, execution_id)
                     else:
+                        # Story 10-4: Use structured error handling for execution failures
                         error_msg = final_status.get('error_message', 'Unknown error')
-                        console.print(f"[red]✗[/red] Execution failed: {error_msg}")
-                        console.print(f"\nView logs: [cyan]rgrid logs {execution_id}[/cyan]")
+                        exit_code = final_status.get('exit_code', 1)
+                        format_failed_execution(
+                            exec_id=execution_id,
+                            exit_code=exit_code,
+                            error_message=error_msg,
+                            script_name=script_path.name,
+                        )
                 except TimeoutError:
                     console.print(f"[yellow]![/yellow] Execution still running after timeout")
                     console.print(f"Check status: [cyan]rgrid status {execution_id}[/cyan]")
