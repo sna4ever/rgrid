@@ -2,7 +2,7 @@
 
 ## Project Status: Backend Complete | Frontend Sprint Active 🚀
 
-**29 backend stories done | 942 tests passing | Phase 3 Frontend Ready!**
+**30 stories done | 922 tests passing | Phase 3 Frontend Active!**
 
 See `OPUS.md` for strategic completion plan.
 
@@ -70,7 +70,7 @@ All backend stories complete - see Completed section.
 
 | Status | Story | Description | Depends On | Story File |
 |--------|-------|-------------|------------|------------|
-| [IN PROGRESS: Dev 1] | **10-1** | Marketing website landing page | None | `docs/sprint-artifacts/stories/10-1-build-marketing-website-landing-page.md` |
+| [DONE] | **10-1** | Marketing website landing page | None | `docs/sprint-artifacts/stories/10-1-build-marketing-website-landing-page.md` |
 | [ ] | **10-2** | Console dashboard with history | 10-1 | `docs/sprint-artifacts/stories/10-2-build-console-dashboard-with-execution-history.md` |
 | [ ] | **10-3** | Download outputs via console | 10-2 | `docs/sprint-artifacts/stories/10-3-implement-download-outputs-via-console.md` |
 
@@ -86,6 +86,7 @@ All backend stories complete - see Completed section.
 
 | Story | Description | Agent | Wave |
 |-------|-------------|-------|------|
+| [DONE] **10-1** | Marketing website landing page | Dev 1 | Phase 3 |
 | [DONE] **BUG-1** | Fix executor return value | Dev 1 | 1 |
 | [DONE] **5-1** | Batch flag with glob | Dev 2 | 1 |
 | [DONE] **7-3** | MinIO retention policy | Dev 3 | 1 |
