@@ -2,7 +2,7 @@
 
 ## Project Status: Backend Complete | Frontend Sprint Active 🚀
 
-**30 stories done | 922 tests passing | Phase 3 Frontend Active!**
+**31 stories done | 922+ tests passing | Phase 3 Frontend Active!**
 
 See `OPUS.md` for strategic completion plan.
 
@@ -71,8 +71,8 @@ All backend stories complete - see Completed section.
 | Status | Story | Description | Depends On | Story File |
 |--------|-------|-------------|------------|------------|
 | [DONE] | **10-1** | Marketing website landing page | None | `docs/sprint-artifacts/stories/10-1-build-marketing-website-landing-page.md` |
-| [IN PROGRESS: Dev 2] | **10-2** | Console dashboard with history | 10-1 | `docs/sprint-artifacts/stories/10-2-build-console-dashboard-with-execution-history.md` |
-| [PREP: Dev 3] | **10-3** | Download outputs via console | 10-2 | `docs/sprint-artifacts/stories/10-3-implement-download-outputs-via-console.md` |
+| [DONE] | **10-2** | Console dashboard with history | 10-1 | `docs/sprint-artifacts/stories/10-2-build-console-dashboard-with-execution-history.md` |
+| [IN PROGRESS: Dev 3] | **10-3** | Download outputs via console | 10-2 | `docs/sprint-artifacts/stories/10-3-implement-download-outputs-via-console.md` |
 
 **Frontend Tech Stack:**
 - Next.js 14 with App Router
@@ -82,85 +82,96 @@ All backend stories complete - see Completed section.
 
 ---
 
-# 🚀 PHASE 4: PRODUCTION READINESS (Available for Dev 1)
+# 🧪 PHASE 4: STAGING VALIDATION & POLISH (Available for Dev 1)
 
-**Polish, documentation, and production prep while frontend completes.**
+**Thorough staging testing and polish. NO production deployment yet - focus on quality.**
 
 ## Available Tasks (Can start immediately)
 
 | Status | Story | Description | Priority | Effort |
 |--------|-------|-------------|----------|--------|
-| [ ] | **PROD-1** | Production deployment guide | HIGH | 2h |
-| [ ] | **PROD-2** | API documentation (OpenAPI/Swagger) | HIGH | 3h |
-| [ ] | **PROD-3** | CLI command improvements | MEDIUM | 2h |
-| [ ] | **PROD-4** | Performance benchmarking suite | MEDIUM | 4h |
-| [ ] | **PROD-5** | Monitoring & alerting setup | HIGH | 3h |
-| [ ] | **PROD-6** | User quickstart guide | HIGH | 2h |
-| [ ] | **PROD-7** | Video tutorial scripts | LOW | 2h |
-| [ ] | **PROD-8** | Load testing framework | MEDIUM | 3h |
-| [ ] | **PROD-9** | Backup & recovery procedures | HIGH | 2h |
-| [ ] | **PROD-10** | Rate limiting implementation | MEDIUM | 3h |
+| [ ] | **STAGE-1** | Staging environment smoke tests | HIGH | 3h |
+| [ ] | **STAGE-2** | End-to-end workflow validation | HIGH | 4h |
+| [ ] | **STAGE-3** | API documentation (test on staging) | HIGH | 3h |
+| [ ] | **STAGE-4** | Staging stress testing (100+ jobs) | HIGH | 4h |
+| [ ] | **STAGE-5** | CLI error handling improvements | MEDIUM | 2h |
+| [ ] | **STAGE-6** | Edge case testing & documentation | HIGH | 3h |
+| [ ] | **STAGE-7** | Staging monitoring setup | MEDIUM | 3h |
+| [ ] | **STAGE-8** | User acceptance test scenarios | HIGH | 2h |
+| [ ] | **STAGE-9** | Performance baseline on staging | MEDIUM | 3h |
+| [ ] | **STAGE-10** | Data integrity validation | HIGH | 2h |
 
 ## Task Descriptions
 
-### PROD-1: Production Deployment Guide
-- Complete step-by-step production deployment
-- Infrastructure requirements and scaling guidelines
-- Security hardening checklist
-- Rollback procedures
+### STAGE-1: Staging Environment Smoke Tests
+- Test all CLI commands against staging.rgrid.dev
+- Verify API endpoints are responding
+- Check MinIO connectivity and uploads
+- Database connection validation
+- Create automated smoke test script
 
-### PROD-2: API Documentation
-- Generate OpenAPI/Swagger spec from FastAPI
-- Interactive API documentation
-- Authentication examples
-- Rate limit documentation
+### STAGE-2: End-to-End Workflow Validation
+- Run complete user journeys on staging
+- Test: upload → execute → monitor → download
+- Batch processing with 10+ files
+- Cost tracking accuracy validation
+- Retry and error recovery flows
 
-### PROD-3: CLI Command Improvements
-- Add `rgrid config` command for settings
-- Improve error messages with suggestions
-- Add `--json` output format for automation
-- Progress bars for long operations
+### STAGE-3: API Documentation (Test on Staging)
+- Generate OpenAPI spec from staging API
+- Deploy interactive docs
+- Test all example requests
+- Verify auth flows work correctly
+- Document any staging-specific configs
 
-### PROD-4: Performance Benchmarking
-- Automated performance test suite
-- Baseline metrics for each operation
-- Regression detection
-- Performance report generation
+### STAGE-4: Staging Stress Testing (100+ Jobs)
+- Submit 100+ concurrent jobs to staging
+- Monitor queue handling and worker scaling
+- Test database under load
+- MinIO bandwidth testing
+- Document breaking points and limits
 
-### PROD-5: Monitoring & Alerting
-- Prometheus metrics integration
-- Grafana dashboard templates
-- Alert rules for critical issues
-- Uptime monitoring setup
+### STAGE-5: CLI Error Handling Improvements
+- Test all failure scenarios on staging
+- Improve error messages based on findings
+- Add helpful recovery suggestions
+- Test network interruption handling
+- Validate timeout behaviors
 
-### PROD-6: User Quickstart Guide
-- 5-minute getting started guide
-- Common use cases with examples
-- Troubleshooting section
-- FAQ
+### STAGE-6: Edge Case Testing & Documentation
+- Document all edge cases discovered
+- Test with invalid/malformed inputs
+- Large file handling (>1GB)
+- Unicode and special characters
+- Create edge case test suite
 
-### PROD-7: Video Tutorial Scripts
-- Script for "Getting Started" video
-- Script for "Advanced Features" video
-- Script for "Troubleshooting" video
+### STAGE-7: Staging Monitoring Setup
+- Set up basic Grafana for staging
+- Create dashboards for key metrics
+- Queue depth and worker status
+- Performance metrics tracking
+- Alert on staging failures
 
-### PROD-8: Load Testing Framework
-- Locust or K6 load test scripts
-- Capacity planning tests
-- Stress test scenarios
-- Performance baseline documentation
+### STAGE-8: User Acceptance Test Scenarios
+- Write UAT test scripts
+- Cover top 10 use cases
+- Document expected vs actual
+- Performance benchmarks
+- Create test data sets
 
-### PROD-9: Backup & Recovery
-- Database backup automation
-- MinIO backup strategy
-- Disaster recovery playbook
-- RTO/RPO documentation
+### STAGE-9: Performance Baseline on Staging
+- Measure performance of all operations
+- Create baseline metrics document
+- Identify slow queries or operations
+- Memory and CPU profiling
+- Network latency measurements
 
-### PROD-10: Rate Limiting
-- Per-user rate limits
-- Per-project rate limits
-- Rate limit headers in responses
-- Configuration via environment
+### STAGE-10: Data Integrity Validation
+- Verify no data loss in workflows
+- Test concurrent access patterns
+- Validate cost calculations
+- Check file integrity after transfer
+- Database consistency checks
 
 ---
 
@@ -168,6 +179,7 @@ All backend stories complete - see Completed section.
 
 | Story | Description | Agent | Wave |
 |-------|-------------|-------|------|
+| [DONE] **10-2** | Console dashboard with history | Dev 2 | Phase 3 |
 | [DONE] **10-1** | Marketing website landing page | Dev 1 | Phase 3 |
 | [DONE] **BUG-1** | Fix executor return value | Dev 1 | 1 |
 | [DONE] **5-1** | Batch flag with glob | Dev 2 | 1 |
