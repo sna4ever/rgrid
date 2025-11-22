@@ -145,6 +145,113 @@ async def get_execution(
     )
 
 
+@router.post("/executions/{execution_id}/retry", response_model=ExecutionResponse)
+async def retry_execution(
+    execution_id: str,
+    db: AsyncSession = Depends(get_db),
+    api_key: str = Depends(verify_api_key),
+) -> ExecutionResponse:
+    """
+    Retry an execution with the same parameters (Story 10-6).
+
+    Creates a new execution using the script, runtime, args, env vars,
+    and input files from the original execution.
+
+    Args:
+        execution_id: Original execution ID to retry
+        db: Database session
+        api_key: Authenticated API key
+
+    Returns:
+        New execution response with new execution_id
+    """
+    from sqlalchemy import select
+
+    # 1. Fetch original execution
+    result = await db.execute(
+        select(Execution).where(Execution.execution_id == execution_id)
+    )
+    original = result.scalar_one_or_none()
+
+    if not original:
+        raise HTTPException(status_code=404, detail="Original execution not found")
+
+    # 2. Generate new execution ID
+    new_execution_id = f"exec_{secrets.token_hex(16)}"
+
+    # 3. Copy input files in MinIO (if any)
+    upload_urls: Dict[str, str] = {}
+    download_urls: Dict[str, str] = {}
+
+    if original.input_files:
+        for filename in original.input_files:
+            # Original object key
+            old_key = f"executions/{execution_id}/inputs/{filename}"
+            # New object key
+            new_key = f"executions/{new_execution_id}/inputs/{filename}"
+
+            # Copy file in MinIO
+            try:
+                minio_client.copy_object(old_key, new_key)
+                logger.info(f"Copied input file {filename} to new execution {new_execution_id}")
+            except Exception as e:
+                logger.warning(f"Failed to copy input file {filename}: {e}")
+                # Continue anyway - user can re-upload if needed
+
+            # Generate presigned URLs for the new execution
+            upload_url = minio_client.generate_presigned_upload_url(new_key, expiration=3600)
+            upload_urls[filename] = upload_url
+            download_url = minio_client.generate_presigned_download_url(new_key, expiration=7200)
+            download_urls[filename] = download_url
+
+    # 4. Create new execution record
+    db_execution = Execution(
+        execution_id=new_execution_id,
+        script_content=original.script_content,
+        runtime=original.runtime,
+        args=original.args,
+        env_vars=original.env_vars,
+        input_files=original.input_files,
+        batch_id=None,  # Retry is not part of original batch
+        requirements_content=original.requirements_content,
+        status=ExecutionStatus.QUEUED.value,
+        created_at=datetime.utcnow(),
+    )
+
+    db.add(db_execution)
+
+    # Submit Ray task if Ray is enabled
+    ray_task_id: str | None = None
+    if settings.ray_enabled and ray_service.is_initialized():
+        ray_task_id = ray_service.submit_execution_task(
+            execution_id=new_execution_id,
+            database_url=settings.database_url
+        )
+        if ray_task_id:
+            db_execution.ray_task_id = ray_task_id
+            logger.info(f"Retry execution {new_execution_id} submitted to Ray (task: {ray_task_id})")
+
+    await db.commit()
+
+    logger.info(f"Created retry execution {new_execution_id} from {execution_id}")
+
+    return ExecutionResponse(
+        execution_id=new_execution_id,
+        script_content=original.script_content,
+        runtime=original.runtime,
+        args=original.args,
+        env_vars=original.env_vars,
+        input_files=original.input_files,
+        upload_urls=upload_urls if upload_urls else None,
+        download_urls=download_urls if download_urls else None,
+        status=ExecutionStatus.QUEUED,
+        created_at=db_execution.created_at,
+        started_at=None,
+        completed_at=None,
+        cost_micros=0,
+    )
+
+
 @router.get("/batches/{batch_id}/status")
 async def get_batch_status(
     batch_id: str,

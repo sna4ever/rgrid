@@ -177,6 +177,47 @@ class APIClient:
         response.raise_for_status()
         return response.json()
 
+    def get_estimate(
+        self,
+        runtime: str = "python:3.11",
+        files: int = 1,
+    ) -> dict[str, Any]:
+        """
+        Get cost estimate for batch execution (Story 9-4).
+
+        Args:
+            runtime: Runtime to estimate for (e.g., "python:3.11")
+            files: Number of files in batch
+
+        Returns:
+            EstimateResponse dictionary with cost breakdown and assumptions
+        """
+        params = {
+            "runtime": runtime,
+            "files": files,
+        }
+
+        response = self.client.get("/api/v1/estimate", params=params)
+        response.raise_for_status()
+        return response.json()
+
+    def retry_execution(self, execution_id: str) -> dict[str, Any]:
+        """
+        Retry an execution with the same parameters (Story 10-6).
+
+        Creates a new execution using the script, runtime, args, env vars,
+        and input files from the original execution.
+
+        Args:
+            execution_id: Original execution ID to retry
+
+        Returns:
+            New execution response with new execution_id
+        """
+        response = self.client.post(f"/api/v1/executions/{execution_id}/retry")
+        response.raise_for_status()
+        return response.json()
+
     def close(self) -> None:
         """Close client connection."""
         self.client.close()

@@ -52,6 +52,8 @@ from rgrid.commands.status import status
 from rgrid.commands.logs import logs
 from rgrid.commands.download import download
 from rgrid.commands.cost import cost
+from rgrid.commands.estimate import estimate
+from rgrid.commands.retry import retry
 
 main.add_command(init)
 main.add_command(run)
@@ -59,6 +61,8 @@ main.add_command(status)
 main.add_command(logs)
 main.add_command(download)
 main.add_command(cost)
+main.add_command(estimate)
+main.add_command(retry)
 
 
 if __name__ == "__main__":

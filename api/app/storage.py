@@ -129,6 +129,24 @@ class MinIOClient:
         except ClientError:
             return False
 
+    def copy_object(self, source_key: str, dest_key: str) -> None:
+        """
+        Copy an object within the same bucket (Story 10-6).
+
+        Args:
+            source_key: Source S3 object key
+            dest_key: Destination S3 object key
+
+        Raises:
+            ClientError: If copy fails (e.g., source doesn't exist)
+        """
+        copy_source = {"Bucket": self.bucket_name, "Key": source_key}
+        self.client.copy_object(
+            CopySource=copy_source,
+            Bucket=self.bucket_name,
+            Key=dest_key,
+        )
+
 
 # Global MinIO client instance
 minio_client = MinIOClient()

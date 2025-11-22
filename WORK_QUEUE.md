@@ -133,8 +133,8 @@ Stories are grouped by tier. Only claim stories whose dependencies are marked [D
 | Status | Story | Description | Depends On | Story File |
 |--------|-------|-------------|------------|------------|
 | [DONE] | **10-4** | Structured error handling | Epic 2 ✅ | `docs/sprint-artifacts/stories/10-4-implement-structured-error-handling-with-clear-messages.md` |
-| [ ] | **10-6** | Manual retry command | Epic 2 ✅ | `docs/sprint-artifacts/stories/10-6-implement-manual-retry-command.md` |
-| [BLOCKED] | **10-7** | Auto-retry transient failures | 10-6 | `docs/sprint-artifacts/stories/10-7-implement-auto-retry-for-transient-failures.md` |
+| [DONE] | **10-6** | Manual retry command | Epic 2 ✅ | `docs/sprint-artifacts/stories/10-6-implement-manual-retry-command.md` |
+| [ ] | **10-7** | Auto-retry transient failures | 10-6 ✅ | `docs/sprint-artifacts/stories/10-7-implement-auto-retry-for-transient-failures.md` |
 
 ---
 
