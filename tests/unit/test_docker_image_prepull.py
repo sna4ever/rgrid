@@ -73,8 +73,8 @@ class TestDockerImagePrePull:
         assert "Pre-pulling common Docker images" in cloud_init or "pre-pull" in cloud_init.lower()
         assert "Story 4-4" in cloud_init  # Reference to story
 
-    def test_cloud_init_prepull_before_ray_start(self):
-        """Docker images should be pre-pulled before Ray worker starts."""
+    def test_cloud_init_prepull_before_worker_start(self):
+        """Docker images should be pre-pulled before worker container starts."""
         # Arrange
         provisioner = WorkerProvisioner(
             "postgresql+asyncpg://test:test@localhost/rgrid",
@@ -85,11 +85,12 @@ class TestDockerImagePrePull:
         # Act
         cloud_init = provisioner._generate_cloud_init("worker-test123")
 
-        # Assert - Docker pull commands should appear before Ray start
+        # Assert - Docker pull commands should appear before worker container starts
         docker_pull_index = cloud_init.index("docker pull python:3.11-slim")
-        ray_start_index = cloud_init.index("ray start")
+        # Worker starts via docker run (either ray-based or container-based)
+        worker_start_index = cloud_init.index("docker run")
 
-        assert docker_pull_index < ray_start_index, "Docker pulls should happen before Ray starts"
+        assert docker_pull_index < worker_start_index, "Docker pulls should happen before worker starts"
 
     def test_prepull_includes_slim_variants(self):
         """Should use slim variants for smaller download size."""
@@ -126,8 +127,8 @@ class TestDockerImagePrePull:
         assert "package_update:" in cloud_init
         assert "runcmd:" in cloud_init
 
-    def test_custom_images_are_commented_out(self):
-        """Custom images should be present but commented for future use."""
+    def test_rgrid_worker_image_pulled(self):
+        """RGrid worker image should be pulled from registry."""
         # Arrange
         provisioner = WorkerProvisioner(
             "postgresql+asyncpg://test:test@localhost/rgrid",
@@ -139,9 +140,8 @@ class TestDockerImagePrePull:
         cloud_init = provisioner._generate_cloud_init("worker-test123")
 
         # Assert
-        # Custom images should be present as comments for documentation
-        # (Users can uncomment when they build custom images)
-        assert "# - docker pull" in cloud_init or "rgrid/" in cloud_init
+        # RGrid worker image should be pulled (from GHCR or custom registry)
+        assert "rgrid-worker" in cloud_init or "rgrid/" in cloud_init
 
     def test_worker_id_in_cloud_init(self):
         """Worker ID should be included in cloud-init."""
