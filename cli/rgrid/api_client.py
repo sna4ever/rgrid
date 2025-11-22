@@ -152,6 +152,31 @@ class APIClient:
         response.raise_for_status()
         return response.json().get("download_url", "")
 
+    def get_cost(
+        self,
+        since: Optional[str] = None,
+        until: Optional[str] = None,
+    ) -> dict[str, Any]:
+        """
+        Get cost breakdown by date range (Story 9-3).
+
+        Args:
+            since: Start date (YYYY-MM-DD). Default: 7 days ago
+            until: End date (YYYY-MM-DD). Default: today
+
+        Returns:
+            CostResponse dictionary with daily breakdown and totals
+        """
+        params = {}
+        if since:
+            params["since"] = since
+        if until:
+            params["until"] = until
+
+        response = self.client.get("/api/v1/cost", params=params)
+        response.raise_for_status()
+        return response.json()
+
     def close(self) -> None:
         """Close client connection."""
         self.client.close()

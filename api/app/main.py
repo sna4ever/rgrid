@@ -105,8 +105,10 @@ app.add_middleware(
 app.include_router(health_router, prefix="/api/v1", tags=["health"])
 
 from app.api.v1.executions import router as executions_router
+from app.api.v1.cost import router as cost_router
 
 app.include_router(executions_router, prefix="/api/v1", tags=["executions"])
+app.include_router(cost_router, prefix="/api/v1", tags=["cost"])
 
 # WebSocket routes (Story 8-3)
 app.include_router(websocket_logs_router, tags=["websocket"])
