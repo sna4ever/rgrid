@@ -28,8 +28,8 @@ Stories are grouped by tier. Only claim stories whose dependencies are marked [D
 
 | Status | Task | Description | Depends On |
 |--------|------|-------------|------------|
-| [ ] | **STAB-5** | E2E smoke test all new features | STAB-4 ✅ |
-| [ ] | **STAB-6** | Write E2E tests for new CLI commands | STAB-4 ✅ |
+| [DONE] | **STAB-5** | E2E smoke test all new features | STAB-4 ✅ |
+| [IN PROGRESS: Dev 3] | **STAB-6** | Write E2E tests for new CLI commands | STAB-4 ✅ |
 | [BLOCKED] | **STAB-7** | Create TIER5_VALIDATION_REPORT.md | STAB-5, STAB-6 |
 
 ---
