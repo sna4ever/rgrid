@@ -1,6 +1,6 @@
 # Story 10.5: Implement Network Failure Graceful Handling
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 
@@ -19,10 +19,18 @@ So that transient issues don't break my workflow.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1 (AC: #1)
-  - [ ] Subtask 1.1
-- [ ] Task 2 (AC: #2)
-  - [ ] Subtask 2.1
+- [x] Task 1: Create network retry module (AC: #1, #2, #3)
+  - [x] Implement is_retryable_error() to detect transient errors
+  - [x] Implement RetryConfig with exponential backoff settings
+  - [x] Implement with_retry() function for retry logic
+- [x] Task 2: Add user feedback during retries (AC: #4, #5, #6)
+  - [x] Implement default_retry_callback() for CLI messages
+  - [x] Display "Connection lost. Retrying... (attempt N/5)"
+  - [x] Raise NetworkError with message on persistent failure
+- [x] Task 3: Integrate retry logic into APIClient (AC: all)
+  - [x] Add _request() method with retry wrapper
+  - [x] Update all API methods to use _request()
+  - [x] Add enable_retry flag for testing
 
 ## Dev Notes
 
@@ -32,7 +40,12 @@ Epic 1 (CLI)
 
 ### Technical Notes
 
+Retryable errors include:
+- httpx.ConnectError, ConnectTimeout, ReadTimeout, WriteTimeout, PoolTimeout
+- HTTP 502, 503, 504 status codes
 
+Exponential backoff: 1s, 2s, 4s, 8s, 16s (capped at 30s max_delay)
+Max retries: 5 (configurable via RetryConfig)
 
 ### References
 
@@ -48,16 +61,28 @@ Epic 1 (CLI)
 
 ### Agent Model Used
 
-<!-- To be filled during implementation -->
+Claude Sonnet 4.5 (claude-sonnet-4-5-20250929)
 
 ### Debug Log References
 
-<!-- To be filled during implementation -->
+N/A - Implementation completed without significant debugging
 
 ### Completion Notes List
 
-<!-- To be filled during implementation -->
+- Created network_retry.py module with retry logic and exponential backoff
+- All APIClient methods now use retry-enabled _request() method
+- 35 unit tests cover all retry scenarios
+- All acceptance criteria met:
+  - AC#1-2: Detects connection errors, timeouts, and server errors (502/503/504)
+  - AC#3: Exponential backoff with 5 retries
+  - AC#4: Displays "Connection lost. Retrying... (attempt 2/5)"
+  - AC#5: Continues seamlessly on successful retry
+  - AC#6: Raises NetworkError("Network error. Check connection and retry.")
 
 ### File List
 
-<!-- To be filled during implementation -->
+- cli/rgrid/network_retry.py (NEW - 220 lines)
+- cli/rgrid/api_client.py (MODIFIED - added _request method with retry)
+- cli/rgrid/errors.py (MODIFIED - added create_api_error helper)
+- tests/unit/test_network_retry.py (NEW - 35 tests)
+- tests/unit/test_retry_command.py (MODIFIED - updated for new request pattern)

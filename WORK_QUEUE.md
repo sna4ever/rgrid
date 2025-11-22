@@ -23,7 +23,7 @@ See: `docs/TIER5_8_VALIDATION_REPORT.md` for full validation details.
 | Status | Story | Description | Depends On | Story File |
 |--------|-------|-------------|------------|------------|
 | [DONE] | **5-6** | Retry failed batch executions | 5-5 ✅ | `docs/sprint-artifacts/stories/5-6-implement-retry-for-failed-batch-executions.md` |
-| [IN PROGRESS: Dev 2] | **10-5** | Network failure graceful handling | None | `docs/sprint-artifacts/stories/10-5-implement-network-failure-graceful-handling.md` |
+| [DONE] | **10-5** | Network failure graceful handling | None | `docs/sprint-artifacts/stories/10-5-implement-network-failure-graceful-handling.md` |
 | [DONE] | **10-8** | Execution metadata tagging | None | `docs/sprint-artifacts/stories/10-8-implement-execution-metadata-tagging.md` |
 
 ---
@@ -34,7 +34,7 @@ See: `docs/TIER5_8_VALIDATION_REPORT.md` for full validation details.
 
 | Status | Story | Description | Depends On | Story File |
 |--------|-------|-------------|------------|------------|
-| [ ] | **6-3** | Automatic cache invalidation | 6-2 ✅ | `docs/sprint-artifacts/stories/6-3-implement-automatic-cache-invalidation.md` |
+| [IN PROGRESS: Dev 3] | **6-3** | Automatic cache invalidation | 6-2 ✅ | `docs/sprint-artifacts/stories/6-3-implement-automatic-cache-invalidation.md` |
 | [ ] | **6-4** | Optional input file caching | 6-1 ✅ | `docs/sprint-artifacts/stories/6-4-implement-optional-input-file-caching.md` |
 
 ---
@@ -93,6 +93,7 @@ See: `docs/TIER5_8_VALIDATION_REPORT.md` for full validation details.
 | [DONE] **8-5** | Batch progress with --watch | Dev 2 | 10 |
 | [DONE] **10-7** | Auto-retry transient failures | Dev 1 | 11 |
 | [DONE] **5-6** | Retry failed batch executions | Dev 1 | 12 |
+| [DONE] **10-5** | Network failure graceful handling | Dev 2 | 12 |
 | [DONE] **10-8** | Execution metadata tagging | Dev 3 | 12 |
 
 ---
