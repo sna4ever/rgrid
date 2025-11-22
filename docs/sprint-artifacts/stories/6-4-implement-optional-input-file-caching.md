@@ -1,6 +1,6 @@
 # Story 6.4: Implement Optional Input File Caching
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 
