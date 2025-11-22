@@ -42,6 +42,10 @@ class ExecutionCreate(ExecutionBase):
         None,
         description="Optional requirements.txt content for auto-installing Python dependencies (Story 2.4)"
     )
+    user_metadata: Optional[Dict[str, str]] = Field(
+        None,
+        description="User-provided metadata tags for organizing executions (Story 10.8)"
+    )
 
 
 class ExecutionResponse(ExecutionBase):
@@ -91,6 +95,11 @@ class ExecutionResponse(ExecutionBase):
     # Auto-retry tracking (Story 10-7)
     retry_count: int = Field(default=0, ge=0, description="Number of retry attempts made")
     max_retries: int = Field(default=2, ge=0, description="Maximum retries allowed")
+
+    # User metadata (Story 10.8)
+    user_metadata: Optional[Dict[str, str]] = Field(
+        None, description="User-provided metadata tags (project, env, etc.)"
+    )
 
 
 class FileMetadata(BaseModel):

@@ -130,16 +130,19 @@ class TestRetryAPIClient:
 
             with patch("rgrid.api_client.httpx.Client") as mock_httpx:
                 mock_httpx_instance = MagicMock()
-                mock_httpx_instance.post.return_value = mock_response
+                # Updated to use .request since _request method uses client.request()
+                mock_httpx_instance.request.return_value = mock_response
                 mock_httpx.return_value = mock_httpx_instance
 
-                client = APIClient()
+                # Disable retry to simplify test (Story 10-5)
+                client = APIClient(enable_retry=False)
 
                 result = client.retry_execution("exec_original123")
 
-                # Assert
-                mock_httpx_instance.post.assert_called_once()
-                call_args = mock_httpx_instance.post.call_args
-                assert "exec_original123" in call_args[0][0]
-                assert "retry" in call_args[0][0]
+                # Assert - now uses .request("POST", path) instead of .post(path)
+                mock_httpx_instance.request.assert_called_once()
+                call_args = mock_httpx_instance.request.call_args
+                assert call_args[0][0] == "POST"  # First arg is method
+                assert "exec_original123" in call_args[0][1]  # Second arg is path
+                assert "retry" in call_args[0][1]
                 assert result["execution_id"] == "exec_new123"

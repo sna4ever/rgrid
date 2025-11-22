@@ -35,7 +35,8 @@ console = Console()
 @click.option("--flat", is_flag=True, help="Flat output structure (no subdirectories per input file)")
 @click.option("--remote-only", is_flag=True, help="Skip auto-download of outputs")
 @click.option("--watch", "-w", is_flag=True, help="Monitor batch progress with real-time cost and duration display")
-def run(script: str, args: tuple[str, ...], runtime: str | None, env: tuple[str, ...], batch_pattern: str | None, parallel: int, output_dir: str, flat: bool, remote_only: bool, watch: bool) -> None:
+@click.option("--metadata", "-m", multiple=True, help="User metadata tag (KEY=VALUE), can be repeated")
+def run(script: str, args: tuple[str, ...], runtime: str | None, env: tuple[str, ...], batch_pattern: str | None, parallel: int, output_dir: str, flat: bool, remote_only: bool, watch: bool, metadata: tuple[str, ...]) -> None:
     """
     Run a Python script remotely.
 
@@ -109,6 +110,24 @@ def run(script: str, args: tuple[str, ...], runtime: str | None, env: tuple[str,
             raise click.Abort()
         key, value = env_var.split("=", 1)
         env_vars[key] = value
+
+    # Story 10.8: Parse user metadata tags
+    user_metadata = {}
+    for meta in metadata:
+        if "=" not in meta:
+            error = create_validation_error(
+                "Invalid metadata format",
+                param="--metadata",
+                value=meta,
+            )
+            error.suggestions = [
+                "Use format: KEY=VALUE",
+                "Example: --metadata project=ml-model",
+            ]
+            display_error(error)
+            raise click.Abort()
+        key, value = meta.split("=", 1)
+        user_metadata[key] = value
 
     # Story 7-1: Validate file arguments exist before proceeding
     try:
@@ -245,6 +264,7 @@ def run(script: str, args: tuple[str, ...], runtime: str | None, env: tuple[str,
                     env_vars=env_vars,
                     input_files=input_files,
                     requirements_content=requirements_content,  # Story 6-2
+                    user_metadata=user_metadata if user_metadata else None,  # Story 10.8
                 )
 
                 # Upload files if any were detected (Story 7-1)
@@ -285,6 +305,9 @@ def run(script: str, args: tuple[str, ...], runtime: str | None, env: tuple[str,
             console.print(f"[dim]Status:[/dim] {status}")
             if file_args:
                 console.print(f"[dim]Uploaded files:[/dim] {', '.join(input_files)}")
+            if user_metadata:
+                meta_str = ", ".join(f"{k}={v}" for k, v in user_metadata.items())
+                console.print(f"[dim]Metadata:[/dim] {meta_str}")
 
             # Handle output download based on --remote-only flag (Story 7-5)
             if remote_only:

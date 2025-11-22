@@ -6,157 +6,60 @@ Stories are grouped by tier. Only claim stories whose dependencies are marked [D
 
 ---
 
-# 🚨 STABILIZATION GATE - MUST COMPLETE BEFORE NEW FEATURES 🚨
+# ✅ STABILIZATION GATE COMPLETE
 
-**26 stories completed without deployment verification. Stabilize first!**
+**26 stories validated. 652 tests passing. Ready for next sprint!**
 
-## Phase 1: Parallel Fixes (All 3 agents can start NOW)
-
-| Status | Task | Description | Depends On |
-|--------|------|-------------|------------|
-| [DONE] | **STAB-1** | Fix 7 failing tests | None |
-| [DONE] | **STAB-2** | Audit & generate missing DB migrations | None |
-| [DONE] | **STAB-3** | Review new API endpoints for deployment | None |
-
-## Phase 2: Deployment (After Phase 1 complete)
-
-| Status | Task | Description | Depends On |
-|--------|------|-------------|------------|
-| [DONE] | **STAB-4** | Apply migrations & deploy to staging | STAB-1 ✅, STAB-2 ✅, STAB-3 ✅ |
-
-## Phase 3: Validation (After deployment)
-
-| Status | Task | Description | Depends On |
-|--------|------|-------------|------------|
-| [DONE] | **STAB-5** | E2E smoke test all new features | STAB-4 ✅ |
-| [DONE] | **STAB-6** | Write E2E tests for new CLI commands | STAB-4 ✅ |
-| [DONE] | **STAB-7** | Create TIER5_VALIDATION_REPORT.md | STAB-5 ✅, STAB-6 ✅ |
+See: `docs/TIER5_8_VALIDATION_REPORT.md` for full validation details.
 
 ---
 
-### STAB-1: Fix Failing Tests
+# REMAINING BACKLOG
 
-**7 tests currently failing:**
-```
-tests/deployment/test_alembic_readiness.py::test_alembic_ini_exists
-tests/deployment/test_alembic_readiness.py::test_migration_includes_expected_tables
-tests/deployment/test_environment_validation.py::test_systemd_uses_correct_module_path
-tests/integration/test_end_to_end.py::test_api_create_execution
-tests/integration/test_end_to_end.py::test_api_accepts_valid_key
-tests/unit/test_docker_image_prepull.py::test_cloud_init_prepull_before_ray_start
-tests/unit/test_docker_image_prepull.py::test_custom_images_are_commented_out
-```
+## Tier 9 - CLI Polish & Resilience (All can start NOW)
 
-**Steps:**
-1. Run `venv/bin/pytest tests/ -v --tb=short 2>&1 | grep FAILED`
-2. Fix each test or mark as skip with reason
-3. Target: 0 failures
+**Goal:** Improve CLI robustness and batch retry capabilities
 
-**Done when:** `venv/bin/pytest tests/` shows 0 failures
+| Status | Story | Description | Depends On | Story File |
+|--------|-------|-------------|------------|------------|
+| [DONE] | **5-6** | Retry failed batch executions | 5-5 ✅ | `docs/sprint-artifacts/stories/5-6-implement-retry-for-failed-batch-executions.md` |
+| [IN PROGRESS: Dev 2] | **10-5** | Network failure graceful handling | None | `docs/sprint-artifacts/stories/10-5-implement-network-failure-graceful-handling.md` |
+| [IN PROGRESS: Dev 3] | **10-8** | Execution metadata tagging | None | `docs/sprint-artifacts/stories/10-8-implement-execution-metadata-tagging.md` |
 
 ---
 
-### STAB-2: Audit Database Migrations
+## Tier 10 - Advanced Caching (After Tier 9 or parallel)
 
-**Stories that likely need DB changes:**
-- 8-6: Track execution metadata → new columns
-- 9-1/9-2: Cost tracking → cost_microns column
-- 6-1/6-2: Caching → script_hash column
+**Goal:** Complete caching story with invalidation and input file caching
 
-**Steps:**
-1. Check `api/api/models/` for new fields
-2. Compare against `api/alembic/versions/`
-3. Generate: `cd api && alembic revision --autogenerate -m "Tier 5-8 schema updates"`
-4. Review and commit migration
-
-**Done when:** All model changes have migrations
+| Status | Story | Description | Depends On | Story File |
+|--------|-------|-------------|------------|------------|
+| [ ] | **6-3** | Automatic cache invalidation | 6-2 ✅ | `docs/sprint-artifacts/stories/6-3-implement-automatic-cache-invalidation.md` |
+| [ ] | **6-4** | Optional input file caching | 6-1 ✅ | `docs/sprint-artifacts/stories/6-4-implement-optional-input-file-caching.md` |
 
 ---
 
-### STAB-3: Review API Endpoints
+## Tier 11 - Future Enhancements
 
-**New endpoints to verify:**
-- `GET /executions/{id}/status` (8-1)
-- `GET /executions/{id}/logs` (8-2)
-- `WS /executions/{id}/logs/stream` (8-3)
-- `GET /executions/{id}/cost` (9-3)
-- `POST /executions/{id}/retry` (10-6)
+**Goal:** Cost alerting and future features
 
-**Steps:**
-1. List all new routers in `api/api/endpoints/`
-2. Verify registered in `api/api/main.py`
-3. Document endpoint list for deployment
-
-**Done when:** All endpoints documented, routers verified
+| Status | Story | Description | Depends On | Story File |
+|--------|-------|-------------|------------|------------|
+| [ ] | **9-5** | Cost alerts (future) | 9-1 ✅ | `docs/sprint-artifacts/stories/9-5-implement-cost-alerts-future-enhancement.md` |
 
 ---
 
-### STAB-4: Deploy to Staging
+## Tier 12 - Console (Next.js - SEPARATE SPRINT)
 
-**Requires:** STAB-1, STAB-2, STAB-3 all [DONE]
+**Goal:** Web console for execution management - requires frontend expertise
 
-**Steps:**
-```bash
-ssh deploy@46.62.246.120
-cd /home/deploy/rgrid && git pull
-source .env.staging
-cd api && alembic upgrade head
-sudo systemctl restart api-staging orchestrator-staging runner-staging
-curl https://staging.rgrid.dev/api/v1/health
-```
+| Status | Story | Description | Depends On | Story File |
+|--------|-------|-------------|------------|------------|
+| [BLOCKED] | **10-1** | Marketing website landing page | None | `docs/sprint-artifacts/stories/10-1-build-marketing-website-landing-page.md` |
+| [BLOCKED] | **10-2** | Console dashboard with history | 10-1 | `docs/sprint-artifacts/stories/10-2-build-console-dashboard-with-execution-history.md` |
+| [BLOCKED] | **10-3** | Download outputs via console | 10-2 | `docs/sprint-artifacts/stories/10-3-implement-download-outputs-via-console.md` |
 
-**Done when:** Health check returns 200
-
----
-
-### STAB-5: E2E Smoke Tests
-
-**Test each feature on staging:**
-```bash
-# Configure CLI for staging
-export RGRID_API_URL=https://staging.rgrid.dev/api/v1
-
-# Test batch
-rgrid run script.py --batch "*.csv" --parallel 3
-
-# Test download
-rgrid run script.py input.csv  # verify outputs download
-
-# Test status/logs/cost
-rgrid status <exec_id>
-rgrid logs <exec_id>
-rgrid cost <exec_id>
-
-# Test retry
-rgrid retry <failed_exec_id>
-```
-
-**Done when:** All commands work correctly
-
----
-
-### STAB-6: Write E2E Tests
-
-**Create tests in `tests/e2e/`:**
-- `test_batch_workflow.py`
-- `test_download_workflow.py`
-- `test_monitoring_commands.py`
-- `test_cost_tracking.py`
-
-**Done when:** Tests pass against staging
-
----
-
-### STAB-7: Validation Report
-
-**Create `docs/TIER5_8_VALIDATION_REPORT.md`:**
-- Stories completed (26)
-- Test results summary
-- Deployment verification
-- Performance observations
-- Known issues / bugs found
-
-**Done when:** Report committed to main
+**Note:** Console stories marked BLOCKED pending frontend sprint planning.
 
 ---
 
@@ -189,6 +92,7 @@ rgrid retry <failed_exec_id>
 | [DONE] **9-4** | Cost estimation for batches | Dev 3 | 10 |
 | [DONE] **8-5** | Batch progress with --watch | Dev 2 | 10 |
 | [DONE] **10-7** | Auto-retry transient failures | Dev 1 | 11 |
+| [DONE] **5-6** | Retry failed batch executions | Dev 1 | 12 |
 
 ---
 
@@ -316,25 +220,23 @@ Read WORK_QUEUE.md and follow the Agent Prompt. You are Dev [1/2/3].
 ## Agent Prompt
 
 ```
-You are an autonomous dev agent. Complete ONE task per session, then stop.
-
-PRIORITY: Complete STAB-* tasks first (Stabilization Gate). Only do regular stories after all STAB tasks are [DONE].
+You are an autonomous dev agent. Complete ONE story per session, then stop.
 
 1. Read WORK_QUEUE.md
-2. Find a [ ] task (STAB-* or story) whose dependencies are all [DONE] or ✅
+2. Find a [ ] story whose dependencies are all [DONE] or ✅
 3. Claim it: edit WORK_QUEUE.md, change [ ] to [IN PROGRESS: Dev N]
-4. For STAB tasks: follow instructions in the task section below
-   For stories: read file from docs/sprint-artifacts/stories/
-5. Complete the task (fix tests, generate migrations, review endpoints, etc.)
-6. Commit changes to main
-7. Edit WORK_QUEUE.md: change [IN PROGRESS: Dev N] to [DONE]
-8. Check if any [BLOCKED] tasks can now be [ ] (deps met)
-9. STOP and output: "Task STAB-X complete. Run /clear then restart me."
+4. Read full story file from docs/sprint-artifacts/stories/
+5. Implement with TDD (write tests first)
+6. Run tests: venv/bin/pytest tests/ -v
+7. Commit and merge to main
+8. Edit WORK_QUEUE.md: change [IN PROGRESS: Dev N] to [DONE]
+9. Check if any [BLOCKED] stories can now be [ ] (deps met)
+10. STOP and output: "Story X-Y complete. Run /clear then restart me for next story."
 
 STOP CONDITIONS:
-- Task completed successfully → output completion message
-- No [ ] tasks available → output "Queue empty or all blocked"
+- Story completed successfully → output completion message
+- No [ ] stories available → output "Queue empty or all blocked"
 - Error/blocker encountered → output "BLOCKED: <reason>" and stop
 
-IMPORTANT: Do NOT loop. Complete ONE task, then STOP so user can /clear context.
+IMPORTANT: Do NOT loop. Complete ONE story, then STOP so user can /clear context.
 ```

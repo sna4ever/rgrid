@@ -58,3 +58,6 @@ class Execution(Base):
     # Auto-retry tracking (Story 10-7)
     retry_count: Mapped[int] = mapped_column(Integer, default=0)
     max_retries: Mapped[int] = mapped_column(Integer, default=2)
+
+    # User metadata (Story 10.8) - user-provided tags for organizing executions
+    user_metadata: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)

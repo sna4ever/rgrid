@@ -330,6 +330,36 @@ def create_network_error(
     return NetworkError(message, context=context)
 
 
+def create_api_error(
+    message: str,
+    endpoint: Optional[str] = None,
+    status_code: Optional[int] = None,
+    response_body: Optional[str] = None,
+) -> NetworkError:
+    """Create an error for API response failures (Story 10.8).
+
+    Args:
+        message: The error message
+        endpoint: Optional API endpoint that failed
+        status_code: Optional HTTP status code
+        response_body: Optional response body for debugging
+
+    Returns:
+        NetworkError with API-specific context
+    """
+    context = {}
+    if endpoint:
+        context["endpoint"] = endpoint
+    if status_code:
+        context["status_code"] = status_code
+    if response_body:
+        # Truncate long response bodies
+        truncated = response_body[:200] + "..." if len(response_body) > 200 else response_body
+        context["response"] = truncated
+
+    return NetworkError(message, context=context)
+
+
 def format_failed_execution(
     exec_id: str,
     exit_code: int,

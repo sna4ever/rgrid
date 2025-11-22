@@ -4,7 +4,7 @@ import logging
 import secrets
 from datetime import datetime
 from typing import Dict
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -67,6 +67,7 @@ async def create_execution(
         input_files=execution.input_files,  # Tier 4 - Story 2-5
         batch_id=execution.batch_id,  # Tier 5 - Story 5-3
         requirements_content=execution.requirements_content,  # Story 2.4 - Python deps
+        user_metadata=execution.user_metadata,  # Story 10.8 - User metadata tags
         status=ExecutionStatus.QUEUED.value,
         created_at=datetime.utcnow(),
     )
@@ -106,7 +107,86 @@ async def create_execution(
         started_at=None,
         completed_at=None,
         cost_micros=0,
+        user_metadata=execution.user_metadata,  # Story 10.8
     )
+
+
+@router.get("/executions")
+async def list_executions(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    api_key: str = Depends(verify_api_key),
+    limit: int = 50,
+    status: str | None = None,
+) -> list[Dict]:
+    """
+    List executions with optional filtering (Story 10.8).
+
+    Args:
+        request: FastAPI Request object for accessing query params
+        db: Database session
+        api_key: Authenticated API key
+        limit: Maximum number of results (default 50)
+        status: Optional status filter (queued, running, completed, failed)
+
+    Query parameters for metadata filtering:
+        metadata[key]=value - Filter by user_metadata field
+
+    Returns:
+        List of execution summaries
+    """
+    from sqlalchemy import select, desc
+
+    # Parse metadata filters from query params (metadata[key]=value)
+    metadata_filters = {}
+    for key, value in request.query_params.items():
+        if key.startswith("metadata[") and key.endswith("]"):
+            # Extract the metadata key name
+            meta_key = key[9:-1]  # Remove "metadata[" and "]"
+            metadata_filters[meta_key] = value
+
+    # Build query
+    query = select(Execution)
+
+    # Apply status filter if provided
+    if status:
+        query = query.where(Execution.status == status)
+
+    # Apply metadata filters (Story 10.8)
+    if metadata_filters:
+        for meta_key, meta_value in metadata_filters.items():
+            # Use JSON containment operator for filtering
+            query = query.where(
+                Execution.user_metadata.op("@>")(
+                    {meta_key: meta_value}
+                )
+            )
+
+    # Order by created_at descending (newest first)
+    query = query.order_by(desc(Execution.created_at))
+
+    # Apply limit
+    query = query.limit(limit)
+
+    result = await db.execute(query)
+    executions = result.scalars().all()
+
+    # Build response list
+    execution_list = []
+    for exec in executions:
+        execution_list.append({
+            "execution_id": exec.execution_id,
+            "status": exec.status,
+            "created_at": exec.created_at.isoformat() if exec.created_at else None,
+            "started_at": exec.started_at.isoformat() if exec.started_at else None,
+            "completed_at": exec.completed_at.isoformat() if exec.completed_at else None,
+            "duration_seconds": exec.duration_seconds,
+            "exit_code": exec.exit_code,
+            "cost_micros": exec.cost_micros,
+            "user_metadata": exec.user_metadata,
+        })
+
+    return execution_list
 
 
 @router.get("/executions/{execution_id}", response_model=ExecutionResponse)
@@ -145,6 +225,8 @@ async def get_execution(
         # Auto-retry tracking (Story 10-7)
         retry_count=db_execution.retry_count,
         max_retries=db_execution.max_retries,
+        # User metadata (Story 10.8)
+        user_metadata=db_execution.user_metadata,
     )
 
 
@@ -217,6 +299,7 @@ async def retry_execution(
         input_files=original.input_files,
         batch_id=None,  # Retry is not part of original batch
         requirements_content=original.requirements_content,
+        user_metadata=original.user_metadata,  # Story 10.8 - Preserve user metadata
         status=ExecutionStatus.QUEUED.value,
         created_at=datetime.utcnow(),
     )
@@ -252,6 +335,7 @@ async def retry_execution(
         started_at=None,
         completed_at=None,
         cost_micros=0,
+        user_metadata=original.user_metadata,  # Story 10.8
     )
 
 

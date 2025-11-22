@@ -3,13 +3,29 @@
 from typing import Optional, Any
 import httpx
 from rgrid.config import config
+from rgrid.network_retry import create_api_wrapper
 
 
 class APIClient:
-    """Client for RGrid API."""
+    """Client for RGrid API.
 
-    def __init__(self) -> None:
-        """Initialize API client."""
+    All API methods automatically retry on transient network failures
+    (connection errors, timeouts, 502/503/504 responses) with exponential backoff.
+    On persistent failures, a NetworkError is raised with a user-friendly message.
+
+    Retry behavior (Story 10-5):
+    - Displays "Connection lost. Retrying... (attempt 2/5)" during retries
+    - Uses exponential backoff: 1s, 2s, 4s, 8s, 16s
+    - On persistent failure: "Network error. Check connection and retry."
+    """
+
+    def __init__(self, enable_retry: bool = True) -> None:
+        """Initialize API client.
+
+        Args:
+            enable_retry: If True (default), wrap API calls with retry logic.
+                         Set to False for testing or when retry is not desired.
+        """
         creds = config.load_credentials()
         if not creds:
             raise RuntimeError(
@@ -23,6 +39,29 @@ class APIClient:
             headers={"Authorization": f"Bearer {self.api_key}"},
             timeout=30.0,
         )
+        self._enable_retry = enable_retry
+
+    def _request(self, method: str, path: str, **kwargs: Any) -> httpx.Response:
+        """Make an HTTP request with optional retry logic.
+
+        Args:
+            method: HTTP method (GET, POST, etc.)
+            path: API path
+            **kwargs: Arguments passed to httpx.Client.request()
+
+        Returns:
+            httpx.Response object
+        """
+        def do_request() -> httpx.Response:
+            response = self.client.request(method, path, **kwargs)
+            response.raise_for_status()
+            return response
+
+        if self._enable_retry:
+            wrapped = create_api_wrapper(do_request)
+            return wrapped()
+        else:
+            return do_request()
 
     def create_execution(
         self,
@@ -33,6 +72,7 @@ class APIClient:
         input_files: Optional[list[str]] = None,
         batch_id: Optional[str] = None,
         requirements_content: Optional[str] = None,
+        user_metadata: Optional[dict[str, str]] = None,
     ) -> dict[str, Any]:
         """
         Create a new execution.
@@ -45,6 +85,7 @@ class APIClient:
             input_files: List of input file names (Tier 4 - Story 2-5)
             batch_id: Optional batch ID for grouping executions (Tier 5 - Story 5-3)
             requirements_content: Optional requirements.txt content for dependency caching (Story 6-2)
+            user_metadata: Optional user metadata tags (Story 10.8)
 
         Returns:
             Execution response (includes upload_urls if input_files provided)
@@ -65,17 +106,16 @@ class APIClient:
         if requirements_content:
             payload["requirements_content"] = requirements_content
 
-        response = self.client.post(
-            "/api/v1/executions",
-            json=payload,
-        )
-        response.raise_for_status()
+        # Add user_metadata if provided (Story 10.8)
+        if user_metadata:
+            payload["user_metadata"] = user_metadata
+
+        response = self._request("POST", "/api/v1/executions", json=payload)
         return response.json()
 
     def get_execution(self, execution_id: str) -> dict[str, Any]:
         """Get execution status."""
-        response = self.client.get(f"/api/v1/executions/{execution_id}")
-        response.raise_for_status()
+        response = self._request("GET", f"/api/v1/executions/{execution_id}")
         return response.json()
 
     def get_batch_status(self, batch_id: str) -> dict[str, Any]:
@@ -88,8 +128,7 @@ class APIClient:
         Returns:
             Dictionary with list of execution statuses
         """
-        response = self.client.get(f"/api/v1/batches/{batch_id}/status")
-        response.raise_for_status()
+        response = self._request("GET", f"/api/v1/batches/{batch_id}/status")
         return response.json()
 
     def get_batch_executions(self, batch_id: str) -> list[dict[str, Any]]:
@@ -102,8 +141,7 @@ class APIClient:
         Returns:
             List of execution dictionaries with batch_metadata including input_file
         """
-        response = self.client.get(f"/api/v1/batches/{batch_id}/executions")
-        response.raise_for_status()
+        response = self._request("GET", f"/api/v1/batches/{batch_id}/executions")
         return response.json()
 
     def get_artifacts(self, execution_id: str) -> list[dict[str, Any]]:
@@ -116,8 +154,7 @@ class APIClient:
         Returns:
             List of artifact dictionaries
         """
-        response = self.client.get(f"/api/v1/executions/{execution_id}/artifacts")
-        response.raise_for_status()
+        response = self._request("GET", f"/api/v1/executions/{execution_id}/artifacts")
         return response.json()
 
     def download_artifact(self, artifact: dict[str, Any], target_path: str) -> None:
@@ -145,11 +182,11 @@ class APIClient:
         Returns:
             Presigned download URL
         """
-        response = self.client.post(
+        response = self._request(
+            "POST",
             "/api/v1/artifacts/download-url",
             json={"s3_key": s3_key}
         )
-        response.raise_for_status()
         return response.json().get("download_url", "")
 
     def get_cost(
@@ -173,8 +210,7 @@ class APIClient:
         if until:
             params["until"] = until
 
-        response = self.client.get("/api/v1/cost", params=params)
-        response.raise_for_status()
+        response = self._request("GET", "/api/v1/cost", params=params)
         return response.json()
 
     def get_estimate(
@@ -197,8 +233,7 @@ class APIClient:
             "files": files,
         }
 
-        response = self.client.get("/api/v1/estimate", params=params)
-        response.raise_for_status()
+        response = self._request("GET", "/api/v1/estimate", params=params)
         return response.json()
 
     def retry_execution(self, execution_id: str) -> dict[str, Any]:
@@ -214,8 +249,35 @@ class APIClient:
         Returns:
             New execution response with new execution_id
         """
-        response = self.client.post(f"/api/v1/executions/{execution_id}/retry")
-        response.raise_for_status()
+        response = self._request("POST", f"/api/v1/executions/{execution_id}/retry")
+        return response.json()
+
+    def list_executions(
+        self,
+        metadata_filter: Optional[dict[str, str]] = None,
+        limit: int = 50,
+        status: Optional[str] = None,
+    ) -> list[dict[str, Any]]:
+        """
+        List executions with optional filtering (Story 10.8).
+
+        Args:
+            metadata_filter: Filter by user_metadata tags (key=value pairs)
+            limit: Maximum number of executions to return (default 50)
+            status: Optional status filter (queued, running, completed, failed)
+
+        Returns:
+            List of execution summaries
+        """
+        params: dict[str, Any] = {"limit": limit}
+        if status:
+            params["status"] = status
+        if metadata_filter:
+            # Pass metadata as query params: metadata[key]=value
+            for key, value in metadata_filter.items():
+                params[f"metadata[{key}]"] = value
+
+        response = self._request("GET", "/api/v1/executions", params=params)
         return response.json()
 
     def close(self) -> None:
