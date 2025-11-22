@@ -152,7 +152,7 @@ async def get_batch_status(
     api_key: str = Depends(verify_api_key),
 ) -> Dict:
     """
-    Get execution statuses for all jobs in a batch.
+    Get execution statuses for all jobs in a batch (Story 8-5).
 
     Args:
         batch_id: Batch ID to query
@@ -160,7 +160,7 @@ async def get_batch_status(
         api_key: Authenticated API key
 
     Returns:
-        Dictionary with list of execution statuses
+        Dictionary with list of execution statuses and total cost
     """
     from sqlalchemy import select
 
@@ -176,7 +176,13 @@ async def get_batch_status(
     # Extract statuses
     statuses = [exec.status for exec in executions]
 
-    return {"statuses": statuses}
+    # Story 8-5: Calculate total cost for batch
+    total_cost_micros = sum(exec.cost_micros or 0 for exec in executions)
+
+    return {
+        "statuses": statuses,
+        "total_cost_micros": total_cost_micros,
+    }
 
 
 @router.get("/batches/{batch_id}/executions")

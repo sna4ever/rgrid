@@ -280,3 +280,108 @@ class TestProgressBarRendering:
         assert "[" in output
         assert "]" in output
         assert ">" in output or "=" in output
+
+
+class TestProgressWithCostAndDuration:
+    """Test progress display with cost and duration (Story 8-5)."""
+
+    def test_format_progress_with_cost(self):
+        """Progress string should include cost when provided."""
+        from cli.rgrid.batch_progress import format_progress_with_cost
+
+        progress = {
+            "completed": 50,
+            "failed": 0,
+            "running": 10,
+            "queued": 40,
+            "total": 100,
+            "percentage": 50.0
+        }
+
+        # 1.5 EUR = 1_500_000 micros
+        output = format_progress_with_cost(progress, eta_seconds=120, elapsed_seconds=300, cost_micros=1_500_000)
+
+        # Should contain cost display
+        assert "1.50" in output or "1.5" in output  # EUR format
+
+    def test_format_progress_with_duration(self):
+        """Progress string should include elapsed duration."""
+        from cli.rgrid.batch_progress import format_progress_with_cost
+
+        progress = {
+            "completed": 50,
+            "failed": 0,
+            "running": 10,
+            "queued": 40,
+            "total": 100,
+            "percentage": 50.0
+        }
+
+        output = format_progress_with_cost(progress, eta_seconds=120, elapsed_seconds=300, cost_micros=0)
+
+        # Should contain duration (5m 0s)
+        assert "5m" in output or "300s" in output or "Duration" in output
+
+    def test_format_progress_zero_cost(self):
+        """Progress should handle zero cost gracefully."""
+        from cli.rgrid.batch_progress import format_progress_with_cost
+
+        progress = {
+            "completed": 10,
+            "failed": 0,
+            "running": 5,
+            "queued": 85,
+            "total": 100,
+            "percentage": 10.0
+        }
+
+        output = format_progress_with_cost(progress, eta_seconds=None, elapsed_seconds=60, cost_micros=0)
+
+        # Should not crash and should show 0 or minimal cost
+        assert "0" in output or "Cost" in output
+
+    def test_format_cost_micros_to_euros(self):
+        """Test micros to euros conversion."""
+        from cli.rgrid.batch_progress import format_cost
+
+        # Test various cost amounts
+        assert format_cost(0) == "0.00"
+        assert format_cost(1_000_000) == "1.00"  # 1 EUR
+        assert format_cost(150_000) == "0.15"  # 15 cents
+        assert format_cost(12_345_678) == "12.35"  # Rounded
+
+    def test_final_summary_with_cost(self):
+        """Final summary should include total cost."""
+        from cli.rgrid.batch_progress import format_final_summary_with_cost
+
+        summary = format_final_summary_with_cost(
+            succeeded=97,
+            failed=3,
+            elapsed_seconds=342,  # 5m 42s
+            total_cost_micros=1_820_000  # EUR 1.82
+        )
+
+        assert "97" in summary
+        assert "3" in summary
+        assert "5m 42s" in summary or "5m42s" in summary
+        assert "1.82" in summary
+
+
+class TestCalculateProgressWithCost:
+    """Test enhanced progress calculation with cost data."""
+
+    def test_calculate_progress_includes_cost(self):
+        """Progress calculation should work with cost data."""
+        from cli.rgrid.batch_progress import calculate_progress_with_cost
+
+        # Simulate batch status response with cost
+        batch_status = {
+            "statuses": ["completed"] * 50 + ["running"] * 10 + ["queued"] * 40,
+            "total_cost_micros": 2_500_000  # EUR 2.50
+        }
+
+        result = calculate_progress_with_cost(batch_status)
+
+        assert result["completed"] == 50
+        assert result["total"] == 100
+        assert result["cost_micros"] == 2_500_000

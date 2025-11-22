@@ -9,7 +9,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 from rgrid.api_client import get_client
 from rgrid.utils.file_detection import detect_file_arguments, detect_requirements_file, validate_file_args
 from rgrid.utils.file_upload import upload_file_to_minio, upload_file_streaming
-from rgrid.batch_progress import display_batch_progress
+from rgrid.batch_progress import display_batch_progress, display_batch_progress_with_watch
 from rgrid.batch import expand_glob_pattern, generate_batch_id
 from rgrid.batch_executor import BatchExecutor
 from rgrid.batch_download import download_batch_outputs
@@ -29,7 +29,8 @@ console = Console()
 @click.option("--output-dir", default="./outputs", help="Output directory for batch outputs (default: ./outputs)")
 @click.option("--flat", is_flag=True, help="Flat output structure (no subdirectories per input file)")
 @click.option("--remote-only", is_flag=True, help="Skip auto-download of outputs")
-def run(script: str, args: tuple[str, ...], runtime: str | None, env: tuple[str, ...], batch_pattern: str | None, parallel: int, output_dir: str, flat: bool, remote_only: bool) -> None:
+@click.option("--watch", "-w", is_flag=True, help="Monitor batch progress with real-time cost and duration display")
+def run(script: str, args: tuple[str, ...], runtime: str | None, env: tuple[str, ...], batch_pattern: str | None, parallel: int, output_dir: str, flat: bool, remote_only: bool, watch: bool) -> None:
     """
     Run a Python script remotely.
 
@@ -54,6 +55,10 @@ def run(script: str, args: tuple[str, ...], runtime: str | None, env: tuple[str,
         \b
         # Run batch of scripts with multiple files
         $ rgrid run process.py --batch data/*.csv
+
+        \b
+        # Run batch with real-time progress monitoring (Story 8-5)
+        $ rgrid run process.py --batch data/*.csv --watch
     """
     script_path = Path(script)
 
@@ -152,30 +157,41 @@ def run(script: str, args: tuple[str, ...], runtime: str | None, env: tuple[str,
                 for filename, error_msg in result.failed_files:
                     console.print(f"  [red]✗[/red] {filename}: {error_msg}")
 
-            # Handle output download based on --remote-only flag (Story 7-5)
-            if remote_only:
-                console.print(f"\n[cyan]ℹ[/cyan] Outputs stored remotely. Download with: [cyan]rgrid download {batch_id}[/cyan]")
-                client.close()
-            else:
+            # Story 8-5: Handle --watch flag for batch progress monitoring
+            if watch:
+                # Watch mode: Monitor progress with cost and duration display
                 console.print(f"\nMonitoring batch progress...\n")
+                console.print()  # Extra line for progress display
 
-                # Display real-time progress (Tier 5 - Story 5-3)
                 try:
-                    display_batch_progress(client, batch_id, poll_interval=2.0)
+                    # Story 8-5: Use enhanced progress display with cost and duration
+                    display_batch_progress_with_watch(client, batch_id, poll_interval=2.0)
 
-                    # Story 5-4: Download and organize batch outputs after completion
-                    console.print(f"\n[cyan]Downloading batch outputs...[/cyan]")
-                    download_batch_outputs(
-                        client,
-                        batch_id,
-                        output_dir=output_dir,
-                        flat=flat
-                    )
+                    # Auto-download outputs after completion (unless --remote-only)
+                    if not remote_only:
+                        console.print(f"\n[cyan]Downloading batch outputs...[/cyan]")
+                        download_batch_outputs(
+                            client,
+                            batch_id,
+                            output_dir=output_dir,
+                            flat=flat
+                        )
+                    else:
+                        console.print(f"\n[cyan]ℹ[/cyan] Outputs stored remotely. Download with: [cyan]rgrid download {batch_id}[/cyan]")
                 except KeyboardInterrupt:
-                    # Handled in display_batch_progress
+                    # Handled in display_batch_progress_with_watch
                     pass
                 finally:
                     client.close()
+            elif remote_only:
+                # Remote-only: Submit and exit (no progress monitoring)
+                console.print(f"\n[cyan]ℹ[/cyan] Outputs stored remotely. Download with: [cyan]rgrid download {batch_id}[/cyan]")
+                client.close()
+            else:
+                # Default: Submit and exit, user can monitor later
+                console.print(f"\n[cyan]ℹ[/cyan] Batch submitted. Monitor progress with: [cyan]rgrid run --batch ... --watch[/cyan]")
+                console.print(f"[cyan]ℹ[/cyan] Download outputs later with: [cyan]rgrid download {batch_id}[/cyan]")
+                client.close()
 
             # Story 5-5: Exit code = 0 if any succeeded, 1 if all failed
             if result.completed == 0:

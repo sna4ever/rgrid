@@ -337,6 +337,205 @@ def display_batch_progress(api_client, batch_id: str, poll_interval: float = 2.0
         # Don't re-raise - allow graceful exit
 
 
+# Story 8-5: Cost and duration display functions
+
+def format_cost(cost_micros: int) -> str:
+    """Format cost in micros to EUR string.
+
+    Args:
+        cost_micros: Cost in microns (1 EUR = 1,000,000 micros)
+
+    Returns:
+        Formatted cost string like "1.50" or "0.02"
+    """
+    cost_eur = cost_micros / 1_000_000
+    return f"{cost_eur:.2f}"
+
+
+def format_progress_with_cost(
+    progress: Dict,
+    eta_seconds: Optional[float],
+    elapsed_seconds: float,
+    cost_micros: int
+) -> str:
+    """Format progress with cost and duration display (Story 8-5).
+
+    Args:
+        progress: Progress dictionary from calculate_progress()
+        eta_seconds: Estimated seconds to completion, or None
+        elapsed_seconds: Time elapsed since batch start
+        cost_micros: Total cost in microns
+
+    Returns:
+        Formatted progress string with cost and duration
+    """
+    # ANSI color codes
+    GREEN = "\033[32m"
+    RED = "\033[31m"
+    YELLOW = "\033[33m"
+    CYAN = "\033[36m"
+    RESET = "\033[0m"
+
+    completed = progress["completed"]
+    failed = progress["failed"]
+    running = progress["running"]
+    queued = progress["queued"]
+    total = progress["total"]
+    percentage = progress["percentage"]
+
+    # Render visual progress bar
+    bar = render_progress_bar(percentage, width=30)
+
+    # Build colored progress string with bar
+    progress_str = f"{CYAN}{bar}{RESET} {completed}/{total} ({percentage:.1f}%)"
+
+    # Add status breakdown
+    if failed > 0:
+        progress_str += f" ({RED}{failed} failed{RESET}, {YELLOW}{running} running{RESET}, {queued} queued)"
+    else:
+        progress_str += f" ({YELLOW}{running} running{RESET}, {queued} queued)"
+
+    # Add duration and ETA
+    duration_str = format_time(elapsed_seconds)
+    progress_str += f"\nDuration: {duration_str}"
+
+    if eta_seconds is not None:
+        eta_str = format_time(eta_seconds)
+        progress_str += f" | ETA: {eta_str}"
+    else:
+        progress_str += " | ETA: calculating..."
+
+    # Add cost
+    cost_str = format_cost(cost_micros)
+    progress_str += f" | Cost: {GREEN}EUR {cost_str}{RESET}"
+
+    return progress_str
+
+
+def format_final_summary_with_cost(
+    succeeded: int,
+    failed: int,
+    elapsed_seconds: float,
+    total_cost_micros: int
+) -> str:
+    """Format final batch execution summary with cost (Story 8-5).
+
+    Args:
+        succeeded: Number of successful executions
+        failed: Number of failed executions
+        elapsed_seconds: Total time elapsed
+        total_cost_micros: Total cost in microns
+
+    Returns:
+        Formatted summary string with cost
+    """
+    # ANSI color codes
+    GREEN = "\033[32m"
+    RED = "\033[31m"
+    RESET = "\033[0m"
+
+    elapsed_str = format_time(elapsed_seconds)
+    cost_str = format_cost(total_cost_micros)
+
+    summary = f"\n{GREEN}Batch complete:{RESET} {succeeded} succeeded"
+
+    if failed > 0:
+        summary += f", {RED}{failed} failed{RESET}"
+
+    summary += f"\nTotal duration: {elapsed_str}"
+    summary += f"\nTotal cost: {GREEN}EUR {cost_str}{RESET}"
+
+    return summary
+
+
+def calculate_progress_with_cost(batch_status: Dict) -> Dict:
+    """Calculate progress statistics including cost data.
+
+    Args:
+        batch_status: Batch status response from API with 'statuses' and 'total_cost_micros'
+
+    Returns:
+        Dictionary with progress stats including cost_micros
+    """
+    statuses = batch_status.get("statuses", [])
+    cost_micros = batch_status.get("total_cost_micros", 0)
+
+    progress = calculate_progress(statuses)
+    progress["cost_micros"] = cost_micros
+
+    return progress
+
+
+def display_batch_progress_with_watch(
+    api_client,
+    batch_id: str,
+    poll_interval: float = 2.0
+):
+    """Display real-time batch progress with cost and duration (Story 8-5).
+
+    This is the enhanced version for --watch flag that shows:
+    - Visual progress bar
+    - Completed/failed/running/queued counts
+    - Duration and ETA
+    - Total cost
+
+    Args:
+        api_client: API client instance
+        batch_id: Batch ID to track
+        poll_interval: Seconds between polls (default 2.0)
+    """
+    start_time = time.time()
+
+    try:
+        while True:
+            # Get current status from API
+            try:
+                response = api_client.get_batch_status(batch_id)
+                statuses = response.get("statuses", [])
+                cost_micros = response.get("total_cost_micros", 0)
+            except KeyboardInterrupt:
+                raise
+            except Exception as e:
+                print(f"\nError polling batch status: {e}")
+                time.sleep(poll_interval)
+                continue
+
+            # Calculate progress
+            progress = calculate_progress(statuses)
+
+            # Calculate elapsed time and ETA
+            elapsed = time.time() - start_time
+            eta = calculate_eta(progress["completed"], progress["total"], elapsed)
+
+            # Clear previous lines (progress + duration/ETA line)
+            sys.stdout.write("\033[2K\033[1A\033[2K\r")  # Clear current line and one above
+
+            # Format and display progress with cost
+            progress_str = format_progress_with_cost(progress, eta, elapsed, cost_micros)
+            print(progress_str, end="", flush=True)
+
+            # Check if all done
+            total_finished = progress["completed"] + progress["failed"]
+            if total_finished >= progress["total"]:
+                # Print final summary with cost
+                elapsed_time = time.time() - start_time
+                summary = format_final_summary_with_cost(
+                    progress["completed"],
+                    progress["failed"],
+                    elapsed_time,
+                    cost_micros
+                )
+                print(summary)
+                break
+
+            # Wait before next poll
+            time.sleep(poll_interval)
+
+    except KeyboardInterrupt:
+        print("\n\nProgress monitoring interrupted. Executions continue in background.")
+        print(f"Use 'rgrid status --batch {batch_id}' to check progress later.")
+
+
 # Import asyncio if needed for async functionality
 try:
     import asyncio
