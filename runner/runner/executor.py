@@ -16,6 +16,10 @@ from runner.cache import (
     calculate_script_hash,
     lookup_script_cache,
     store_script_cache,
+    # Story 6-3: Combined cache for automatic invalidation
+    calculate_combined_hash,
+    lookup_combined_cache,
+    store_combined_cache,
 )
 from runner.log_streamer import stream_container_logs
 
@@ -149,13 +153,21 @@ RUN --mount=type=cache,target=/root/.cache/pip \\
         env_vars = env_vars or {}
         download_urls = download_urls or {}
 
-        # Story 6-1: Calculate script hash for cache lookup
-        script_hash = calculate_script_hash(script_content)
-        logger.info(f"Script hash: {script_hash[:16]}...")
+        # Story 6-3: Calculate combined hash for automatic cache invalidation
+        # This ensures cache is invalidated when ANY input changes (script, deps, or runtime)
+        deps_for_hash = requirements_content or ""
+        combined_hash = calculate_combined_hash(script_content, deps_for_hash, runtime)
+        logger.info(f"Combined hash: {combined_hash[:16]}... (script + deps + runtime)")
 
-        # Story 6-1: Check script cache before any build operations
-        cached_image = lookup_script_cache(script_hash, runtime)
+        # Story 6-3: Check combined cache first (includes script + deps + runtime)
+        cached_image = lookup_combined_cache(combined_hash)
         cache_hit = cached_image is not None
+
+        # Fall back to script cache for backwards compatibility (Story 6-1)
+        if not cache_hit and not requirements_content:
+            script_hash = calculate_script_hash(script_content)
+            cached_image = lookup_script_cache(script_hash, runtime)
+            cache_hit = cached_image is not None
 
         # Create temporary directory for script and files
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -166,9 +178,9 @@ RUN --mount=type=cache,target=/root/.cache/pip \\
             # Determine the actual runtime to use
             actual_runtime = runtime
 
-            # Story 6-1: Use cached image if available
+            # Story 6-3: Use cached image if available (combined cache)
             if cache_hit:
-                logger.info(f"✓ Script cache HIT - using cached image: {cached_image[:30]}...")
+                logger.info(f"✓ Combined cache HIT - using cached image: {cached_image[:30]}...")
                 actual_runtime = cached_image
             elif requirements_content:
                 # Story 6-2: Build custom image with dependencies if requirements.txt provided
@@ -178,11 +190,17 @@ RUN --mount=type=cache,target=/root/.cache/pip \\
                     requirements_content=requirements_content,
                     build_dir=tmpdir_path,
                 )
-                # Story 6-1: Store in script cache after building
+                # Story 6-3: Store in combined cache (includes script + deps + runtime)
                 try:
-                    store_script_cache(script_hash, runtime, actual_runtime)
+                    store_combined_cache(
+                        combined_hash,
+                        actual_runtime,
+                        script_content,
+                        requirements_content,
+                        runtime
+                    )
                 except Exception as e:
-                    logger.warning(f"Failed to store script cache: {e}")
+                    logger.warning(f"Failed to store combined cache: {e}")
 
             # Download input files if any (Tier 4 - Story 2-5)
             # Story 7-2: Always create /work directory for outputs
