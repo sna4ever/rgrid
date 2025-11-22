@@ -1,6 +1,6 @@
 # Story 5.6: Implement Retry for Failed Batch Executions
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 
@@ -18,10 +18,18 @@ So that I don't re-run successful ones.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1 (AC: #1)
-  - [ ] Subtask 1.1
-- [ ] Task 2 (AC: #2)
-  - [ ] Subtask 2.1
+- [x] Task 1 (AC: #1, #2): Add --batch and --failed-only options to retry command
+  - [x] Subtask 1.1: Modify retry.py to accept --batch option
+  - [x] Subtask 1.2: Add --failed-only flag for filtering
+- [x] Task 2 (AC: #3, #4, #5): Implement batch retry logic
+  - [x] Subtask 2.1: Fetch batch executions via get_batch_executions()
+  - [x] Subtask 2.2: Filter by status=failed when --failed-only is set
+  - [x] Subtask 2.3: Retry each filtered execution with retry_execution()
+  - [x] Subtask 2.4: Display summary with new execution IDs
+- [x] Task 3: Write unit tests
+  - [x] Subtask 3.1: Test --failed-only filters correctly
+  - [x] Subtask 3.2: Test without --failed-only retries all
+  - [x] Subtask 3.3: Test error handling and edge cases
 
 ## Dev Notes
 
@@ -31,7 +39,11 @@ Story 5.5
 
 ### Technical Notes
 
+Implementation uses existing API client methods:
+- `get_batch_executions(batch_id)` - fetches all executions in batch
+- `retry_execution(execution_id)` - creates new execution from original
 
+No new API endpoints required - all functionality built on existing infrastructure.
 
 ### References
 
@@ -47,16 +59,23 @@ Story 5.5
 
 ### Agent Model Used
 
-<!-- To be filled during implementation -->
+Claude Sonnet 4.5 (claude-sonnet-4-5-20250929)
 
 ### Debug Log References
 
-<!-- To be filled during implementation -->
+N/A - Implementation was straightforward
 
 ### Completion Notes List
 
-<!-- To be filled during implementation -->
+- Added `--batch` (`-b`) option to specify batch ID
+- Added `--failed-only` flag to filter to failed executions only
+- Refactored retry command into `_retry_batch()` and `_retry_single()` functions
+- Batch retry displays rich table with original/new execution IDs
+- Handles partial failures gracefully (continues retrying, reports failures)
+- Validates mutual exclusivity of execution_id and --batch
+- 12 unit tests covering all acceptance criteria
 
 ### File List
 
-<!-- To be filled during implementation -->
+- `cli/rgrid/commands/retry.py` - Modified: added batch retry support
+- `tests/unit/test_batch_retry.py` - New: 12 unit tests for batch retry
