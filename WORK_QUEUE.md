@@ -2,7 +2,7 @@
 
 ## Project Status: Backend Complete | Frontend Sprint Active 🚀
 
-**29 backend stories done | 905 tests passing | Phase 3 Frontend Ready!**
+**29 backend stories done | 942 tests passing | Phase 3 Frontend Ready!**
 
 See `OPUS.md` for strategic completion plan.
 
@@ -51,7 +51,7 @@ All backend stories complete - see Completed section.
 - Full report: `docs/PHASE2_PERFORMANCE_REPORT.md`
 
 **Phase 2 Summary:**
-- Total tests: 905 passing
+- Total tests: 942 passing
 - Security vulnerabilities: 6 found, 6 fixed
 - Performance: All targets exceeded
 - Integration: Full CLI workflow covered
@@ -70,7 +70,7 @@ All backend stories complete - see Completed section.
 
 | Status | Story | Description | Depends On | Story File |
 |--------|-------|-------------|------------|------------|
-| [ ] | **10-1** | Marketing website landing page | None | `docs/sprint-artifacts/stories/10-1-build-marketing-website-landing-page.md` |
+| [IN PROGRESS: Dev 1] | **10-1** | Marketing website landing page | None | `docs/sprint-artifacts/stories/10-1-build-marketing-website-landing-page.md` |
 | [ ] | **10-2** | Console dashboard with history | 10-1 | `docs/sprint-artifacts/stories/10-2-build-console-dashboard-with-execution-history.md` |
 | [ ] | **10-3** | Download outputs via console | 10-2 | `docs/sprint-artifacts/stories/10-3-implement-download-outputs-via-console.md` |
 
