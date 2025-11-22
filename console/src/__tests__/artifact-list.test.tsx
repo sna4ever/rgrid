@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/no-require-imports */
 /**
  * Tests for ArtifactList component (Story 10-3)
  *

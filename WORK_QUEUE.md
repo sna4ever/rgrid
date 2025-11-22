@@ -90,7 +90,7 @@ All backend stories complete - see Completed section.
 
 | Status | Story | Description | Priority | Effort |
 |--------|-------|-------------|----------|--------|
-| [ ] | **STAGE-1** | Staging environment smoke tests | HIGH | 3h |
+| [IN PROGRESS: Dev 1] | **STAGE-1** | Staging environment smoke tests | HIGH | 3h |
 | [ ] | **STAGE-2** | End-to-end workflow validation | HIGH | 4h |
 | [ ] | **STAGE-3** | API documentation (test on staging) | HIGH | 3h |
 | [ ] | **STAGE-4** | Staging stress testing (100+ jobs) | HIGH | 4h |

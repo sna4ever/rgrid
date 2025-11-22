@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/ban-ts-comment */
 /**
  * Tests for Download API helpers (Story 10-3)
  *
@@ -21,7 +22,7 @@ const mockLocationHref = jest.fn();
 const originalLocation = window.location;
 
 beforeAll(() => {
-  // @ts-ignore
+  // @ts-expect-error - Deliberately deleting read-only property for testing
   delete window.location;
   window.location = {
     ...originalLocation,

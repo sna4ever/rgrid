@@ -1,6 +1,6 @@
 # Story 10.2: Build Console Dashboard with Execution History
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 
@@ -221,18 +221,73 @@ export async function fetchExecution(apiKey: string, id: string) {
 4. Add polling for running executions (every 5 seconds)
 5. Consider WebSocket connection for real-time log updates on detail page
 
+### Updated Research (Dev 2 - 2025-11-22 Session 2)
+
+**Current Console State (rgrid-console/):**
+1. Next.js 14.2.33 with App Router - READY
+2. TypeScript 5 - READY
+3. Tailwind CSS 3.4.1 - READY
+4. Marketing landing page at page.tsx - IN PROGRESS by Dev 1
+5. Clerk - NOT YET INSTALLED
+6. shadcn/ui - NOT YET INSTALLED
+
+**What 10-1 Still Needs:**
+- Update layout.tsx metadata (currently shows "Create Next App")
+- Install and configure Clerk for app.rgrid.dev authentication
+- Deploy and verify < 1 second load time
+
+**Console Architecture Clarification:**
+- rgrid.dev → Marketing page (Story 10-1)
+- app.rgrid.dev → Console dashboard (Story 10-2) - requires Clerk auth
+- Both can live in same Next.js app with separate routes OR separate deployments
+
+**Ready to Implement When 10-1 Completes:**
+1. Create src/lib/types.ts with Execution interfaces
+2. Create src/lib/utils.ts with formatCost, formatDate, formatDuration
+3. Create src/lib/api-client.ts wrapping backend API
+4. Create src/app/dashboard/page.tsx with ExecutionsTable
+5. Create src/app/executions/[id]/page.tsx detail view
+6. Add shadcn/ui components: Table, Badge, Card, Tabs
+
+**Test Strategy:**
+- Unit tests: utils.ts functions (formatCost, formatDate, formatDuration)
+- Component tests: ExecutionsTable, StatusBadge with mocked data
+- Integration tests: API client with mocked fetch
+
 ### Agent Model Used
 
-<!-- To be filled during implementation -->
+Claude Sonnet 4.5 (claude-sonnet-4-5-20250929)
 
 ### Debug Log References
 
-<!-- To be filled during implementation -->
+- Console tests: 65 passed, 26 skipped
+- Build: Successful, all routes generated
 
 ### Completion Notes List
 
-<!-- To be filled during implementation -->
+**Dev 2 - 2025-11-22 Session 2:**
+- Created complete console dashboard with execution history table
+- Implemented execution detail view with logs, artifacts, and metadata
+- All acceptance criteria met:
+  - AC#1: Dashboard accessible at /dashboard
+  - AC#2: Dashboard loads with executions table
+  - AC#3-4: Table shows execution_id, status, started_at, duration, cost
+  - AC#5: Click execution → detail view with logs and outputs
+- Tests: 26 utility tests + component tests
+- Build passes with production optimization
 
 ### File List
 
-<!-- To be filled during implementation -->
+**New Files Created:**
+- `console/src/lib/types.ts` - TypeScript interfaces for Execution, Artifact, etc.
+- `console/src/lib/utils.ts` - formatCost, formatDate, formatDuration, formatStatus
+- `console/src/lib/api-client.ts` - Backend API client with fetchExecutions, fetchExecution, etc.
+- `console/src/components/status-badge.tsx` - Status badge component with color coding
+- `console/src/components/executions-table.tsx` - Executions table with loading/error/empty states
+- `console/src/app/dashboard/page.tsx` - Dashboard page with executions table
+- `console/src/app/executions/[id]/page.tsx` - Execution detail page with logs and artifacts
+- `console/src/__tests__/utils.test.ts` - 26 unit tests for utility functions
+- `console/src/__tests__/components.test.tsx` - Component tests for StatusBadge and ExecutionsTable
+
+**Modified Files:**
+- `console/src/app/layout.tsx` - Updated metadata title/description
