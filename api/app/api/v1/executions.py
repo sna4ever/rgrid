@@ -1,15 +1,18 @@
 """Execution endpoints."""
 
+import hashlib
 import logging
 import secrets
 from datetime import datetime
 from typing import Dict
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.api.v1.auth import verify_api_key
 from app.models.execution import Execution
+from app.models.spending_limit import SpendingLimit
 from app.storage import minio_client
 from app.ray_service import ray_service
 from app.config import settings
@@ -18,6 +21,81 @@ from rgrid_common.types import ExecutionStatus
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+
+# MICRONS pattern constants
+MICROS_PER_EURO: int = 1_000_000
+
+
+def hash_api_key(api_key: str) -> str:
+    """Create a SHA256 hash of an API key for storage."""
+    return hashlib.sha256(api_key.encode()).hexdigest()
+
+
+async def check_spending_limit(db: AsyncSession, api_key: str) -> None:
+    """
+    Check if the spending limit allows new executions (Story 9-5).
+
+    Args:
+        db: Database session
+        api_key: Authenticated API key
+
+    Raises:
+        HTTPException: 402 Payment Required if limit exceeded
+    """
+    api_key_hash = hash_api_key(api_key)
+
+    # Get spending limit for this API key
+    result = await db.execute(
+        select(SpendingLimit).where(SpendingLimit.api_key_hash == api_key_hash)
+    )
+    limit_record = result.scalar_one_or_none()
+
+    # No limit set - allow execution
+    if not limit_record or not limit_record.is_enabled or limit_record.monthly_limit_micros == 0:
+        return
+
+    # Calculate current month's usage
+    now = datetime.utcnow()
+    month_start = datetime(now.year, now.month, 1, 0, 0, 0)
+    if now.month == 12:
+        next_month_start = datetime(now.year + 1, 1, 1, 0, 0, 0)
+    else:
+        next_month_start = datetime(now.year, now.month + 1, 1, 0, 0, 0)
+
+    usage_result = await db.execute(
+        select(
+            func.sum(func.coalesce(Execution.finalized_cost_micros, Execution.cost_micros))
+        )
+        .where(Execution.created_at >= month_start)
+        .where(Execution.created_at < next_month_start)
+        .where(Execution.status.in_(["completed", "failed"]))
+    )
+    current_usage_micros = usage_result.scalar() or 0
+
+    # Check if at or over limit
+    if current_usage_micros >= limit_record.monthly_limit_micros:
+        limit_euros = limit_record.monthly_limit_micros / MICROS_PER_EURO
+        usage_euros = current_usage_micros / MICROS_PER_EURO
+
+        logger.warning(
+            f"Execution blocked: spending limit exceeded. "
+            f"Usage: €{usage_euros:.2f}, Limit: €{limit_euros:.2f}"
+        )
+
+        raise HTTPException(
+            status_code=status.HTTP_402_PAYMENT_REQUIRED,
+            detail={
+                "error": "spending_limit_exceeded",
+                "message": (
+                    f"Monthly spending limit exceeded. "
+                    f"Current usage: €{usage_euros:.2f}, Limit: €{limit_euros:.2f}/month. "
+                    f"Increase your limit with: rgrid cost set-limit <amount>"
+                ),
+                "current_usage_micros": current_usage_micros,
+                "monthly_limit_micros": limit_record.monthly_limit_micros,
+            },
+        )
 
 
 @router.post("/executions", response_model=ExecutionResponse)
@@ -36,7 +114,13 @@ async def create_execution(
 
     Returns:
         Created execution with presigned upload URLs for input files
+
+    Raises:
+        HTTPException: 402 Payment Required if spending limit exceeded (Story 9-5)
     """
+    # Story 9-5: Check spending limit before allowing new execution
+    await check_spending_limit(db, api_key)
+
     # Generate execution ID
     execution_id = f"exec_{secrets.token_hex(16)}"
 
@@ -44,17 +128,40 @@ async def create_execution(
     upload_urls: Dict[str, str] = {}
     download_urls: Dict[str, str] = {}
 
-    for filename in execution.input_files:
-        # Object key: executions/{exec_id}/inputs/{filename}
-        object_key = f"executions/{execution_id}/inputs/{filename}"
+    # Story 6-4: Check if using cached input file references
+    if execution.cached_input_refs:
+        # Cache hit - copy cached files to new execution path and generate download URLs
+        logger.info(f"Using cached input refs for {len(execution.cached_input_refs)} files")
+        for filename, cached_path in execution.cached_input_refs.items():
+            # New object key for this execution
+            new_object_key = f"executions/{execution_id}/inputs/{filename}"
 
-        # Generate presigned PUT URL for CLI to upload file
-        upload_url = minio_client.generate_presigned_upload_url(object_key, expiration=3600)
-        upload_urls[filename] = upload_url
+            # Copy file from cached location to new execution path
+            try:
+                minio_client.copy_object(cached_path, new_object_key)
+                logger.info(f"Copied cached input {filename} from {cached_path}")
+            except Exception as e:
+                logger.warning(f"Failed to copy cached input {filename}: {e}")
+                # Fallback: generate upload URL for this file
+                upload_url = minio_client.generate_presigned_upload_url(new_object_key, expiration=3600)
+                upload_urls[filename] = upload_url
 
-        # Also generate presigned GET URL for runner to download file
-        download_url = minio_client.generate_presigned_download_url(object_key, expiration=7200)
-        download_urls[filename] = download_url
+            # Generate download URL for runner
+            download_url = minio_client.generate_presigned_download_url(new_object_key, expiration=7200)
+            download_urls[filename] = download_url
+    else:
+        # Cache miss or no caching - generate upload URLs as normal
+        for filename in execution.input_files:
+            # Object key: executions/{exec_id}/inputs/{filename}
+            object_key = f"executions/{execution_id}/inputs/{filename}"
+
+            # Generate presigned PUT URL for CLI to upload file
+            upload_url = minio_client.generate_presigned_upload_url(object_key, expiration=3600)
+            upload_urls[filename] = upload_url
+
+            # Also generate presigned GET URL for runner to download file
+            download_url = minio_client.generate_presigned_download_url(object_key, expiration=7200)
+            download_urls[filename] = download_url
 
     # Create database record
     runtime_str = execution.runtime.value if hasattr(execution.runtime, 'value') else execution.runtime
@@ -249,8 +356,12 @@ async def retry_execution(
 
     Returns:
         New execution response with new execution_id
+
+    Raises:
+        HTTPException: 402 Payment Required if spending limit exceeded (Story 9-5)
     """
-    from sqlalchemy import select
+    # Story 9-5: Check spending limit before allowing retry
+    await check_spending_limit(db, api_key)
 
     # 1. Fetch original execution
     result = await db.execute(

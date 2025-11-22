@@ -73,6 +73,7 @@ class APIClient:
         batch_id: Optional[str] = None,
         requirements_content: Optional[str] = None,
         user_metadata: Optional[dict[str, str]] = None,
+        cached_input_refs: Optional[dict[str, str]] = None,
     ) -> dict[str, Any]:
         """
         Create a new execution.
@@ -86,6 +87,7 @@ class APIClient:
             batch_id: Optional batch ID for grouping executions (Tier 5 - Story 5-3)
             requirements_content: Optional requirements.txt content for dependency caching (Story 6-2)
             user_metadata: Optional user metadata tags (Story 10.8)
+            cached_input_refs: Optional cached input file references (Story 6-4)
 
         Returns:
             Execution response (includes upload_urls if input_files provided)
@@ -109,6 +111,10 @@ class APIClient:
         # Add user_metadata if provided (Story 10.8)
         if user_metadata:
             payload["user_metadata"] = user_metadata
+
+        # Add cached_input_refs if provided (Story 6-4)
+        if cached_input_refs:
+            payload["cached_input_refs"] = cached_input_refs
 
         response = self._request("POST", "/api/v1/executions", json=payload)
         return response.json()
@@ -252,6 +258,41 @@ class APIClient:
         response = self._request("POST", f"/api/v1/executions/{execution_id}/retry")
         return response.json()
 
+    def lookup_input_cache(self, input_hash: str) -> dict[str, Any]:
+        """
+        Look up cached input file references by hash (Story 6-4).
+
+        Args:
+            input_hash: SHA256 hash of combined input files (64 hex chars)
+
+        Returns:
+            Dictionary with cache_hit (bool) and file_references (dict) if hit
+        """
+        response = self._request("GET", f"/api/v1/input-cache/{input_hash}")
+        return response.json()
+
+    def store_input_cache(
+        self,
+        input_hash: str,
+        file_references: dict[str, str],
+    ) -> dict[str, Any]:
+        """
+        Store input cache entry after file upload (Story 6-4).
+
+        Args:
+            input_hash: SHA256 hash of combined input files (64 hex chars)
+            file_references: Dict mapping filenames to MinIO object keys
+
+        Returns:
+            Dictionary with stored=True on success
+        """
+        payload = {
+            "input_hash": input_hash,
+            "file_references": file_references,
+        }
+        response = self._request("POST", "/api/v1/input-cache", json=payload)
+        return response.json()
+
     def list_executions(
         self,
         metadata_filter: Optional[dict[str, str]] = None,
@@ -278,6 +319,43 @@ class APIClient:
                 params[f"metadata[{key}]"] = value
 
         response = self._request("GET", "/api/v1/executions", params=params)
+        return response.json()
+
+    def get_spending_limit(self) -> dict[str, Any]:
+        """
+        Get current spending limit and usage status (Story 9-5).
+
+        Returns:
+            SpendingLimitResponse dictionary with limit and usage information
+        """
+        response = self._request("GET", "/api/v1/cost/limit")
+        return response.json()
+
+    def set_spending_limit(self, monthly_limit_euros: float) -> dict[str, Any]:
+        """
+        Set a monthly spending limit (Story 9-5).
+
+        Args:
+            monthly_limit_euros: Monthly limit in euros (e.g., 50.0 for €50/month)
+
+        Returns:
+            LimitSetResponse dictionary confirming the limit was set
+        """
+        response = self._request(
+            "PUT",
+            "/api/v1/cost/limit",
+            json={"monthly_limit_euros": monthly_limit_euros}
+        )
+        return response.json()
+
+    def remove_spending_limit(self) -> dict[str, Any]:
+        """
+        Remove the spending limit (Story 9-5).
+
+        Returns:
+            Success message
+        """
+        response = self._request("DELETE", "/api/v1/cost/limit")
         return response.json()
 
     def close(self) -> None:

@@ -46,6 +46,10 @@ class ExecutionCreate(ExecutionBase):
         None,
         description="User-provided metadata tags for organizing executions (Story 10.8)"
     )
+    cached_input_refs: Optional[Dict[str, str]] = Field(
+        None,
+        description="Cached input file references (filename -> MinIO object key) from input cache hit (Story 6-4)"
+    )
 
 
 class ExecutionResponse(ExecutionBase):

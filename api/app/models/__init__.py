@@ -8,6 +8,8 @@ from app.models.api_key import APIKey
 from app.models.dependency_cache import DependencyCache
 from app.models.combined_cache import CombinedCache
 from app.models.script_cache import ScriptCache
+from app.models.input_cache import InputCache
+from app.models.spending_limit import SpendingLimit
 
 __all__ = [
     "Artifact",
@@ -18,4 +20,6 @@ __all__ = [
     "DependencyCache",
     "CombinedCache",
     "ScriptCache",
+    "InputCache",
+    "SpendingLimit",
 ]

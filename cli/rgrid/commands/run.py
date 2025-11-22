@@ -9,6 +9,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 from rgrid.api_client import get_client
 from rgrid.utils.file_detection import detect_file_arguments, detect_requirements_file, validate_file_args
 from rgrid.utils.file_upload import upload_file_to_minio, upload_file_streaming
+from rgrid.utils.input_cache import calculate_input_hash_from_files
 from rgrid.batch_progress import display_batch_progress, display_batch_progress_with_watch
 from rgrid.batch import expand_glob_pattern, generate_batch_id
 from rgrid.batch_executor import BatchExecutor
@@ -257,6 +258,27 @@ def run(script: str, args: tuple[str, ...], runtime: str | None, env: tuple[str,
                 task = progress.add_task(description="Submitting execution...", total=None)
 
                 client = get_client()
+
+                # Story 6-4: Check input cache if we have file arguments
+                cached_input_refs = None
+                input_hash = None
+                cache_hit = False
+
+                if file_args:
+                    progress.update(task, description="Checking input cache...")
+                    try:
+                        input_hash = calculate_input_hash_from_files(file_args)
+                        cache_result = client.lookup_input_cache(input_hash)
+                        cache_hit = cache_result.get("cache_hit", False)
+
+                        if cache_hit:
+                            cached_input_refs = cache_result.get("file_references", {})
+                            console.print(f"[green]✓[/green] Input cache hit: skipping upload for {len(file_args)} file(s)")
+                    except Exception as e:
+                        # Cache lookup failed - proceed without caching
+                        console.print(f"[dim]Input cache unavailable: {e}[/dim]")
+
+                progress.update(task, description="Creating execution...")
                 result = client.create_execution(
                     script_content=script_content,
                     runtime=resolved_runtime,
@@ -265,12 +287,16 @@ def run(script: str, args: tuple[str, ...], runtime: str | None, env: tuple[str,
                     input_files=input_files,
                     requirements_content=requirements_content,  # Story 6-2
                     user_metadata=user_metadata if user_metadata else None,  # Story 10.8
+                    cached_input_refs=cached_input_refs,  # Story 6-4
                 )
 
-                # Upload files if any were detected (Story 7-1)
+                # Upload files if any were detected and cache miss (Story 7-1 + Story 6-4)
                 upload_urls = result.get("upload_urls", {})
                 if upload_urls:
                     progress.update(task, description=f"Uploading {len(upload_urls)} file(s)...")
+
+                    # Track uploaded file refs for cache storage
+                    uploaded_file_refs = {}
 
                     for file_path in file_args:
                         file_path_obj = Path(file_path)
@@ -291,10 +317,23 @@ def run(script: str, args: tuple[str, ...], runtime: str | None, env: tuple[str,
                                 progress.update(task, description=f"Uploading {filename} ({size_str})...")
                                 success = upload_file_to_minio(file_path, presigned_url)
 
-                            if not success:
+                            if success:
+                                # Track uploaded file ref for cache
+                                exec_id = result.get("execution_id", "unknown")
+                                uploaded_file_refs[filename] = f"executions/{exec_id}/inputs/{filename}"
+                            else:
                                 console.print(f"[yellow]Warning:[/yellow] Failed to upload {filename}")
                         else:
                             console.print(f"[yellow]Warning:[/yellow] No upload URL for {filename}")
+
+                    # Story 6-4: Store input cache entry after successful upload
+                    if input_hash and uploaded_file_refs and not cache_hit:
+                        try:
+                            client.store_input_cache(input_hash, uploaded_file_refs)
+                            console.print(f"[dim]Input cache stored for {len(uploaded_file_refs)} file(s)[/dim]")
+                        except Exception as e:
+                            # Cache store failed - not critical
+                            console.print(f"[dim]Failed to store input cache: {e}[/dim]")
 
                 client.close()
 

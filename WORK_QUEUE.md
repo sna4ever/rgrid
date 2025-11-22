@@ -16,8 +16,8 @@ See `OPUS.md` for strategic completion plan.
 
 | Status | Story | Description | Depends On | Story File | Suggested Dev |
 |--------|-------|-------------|------------|------------|---------------|
-| [ ] | **6-4** | Optional input file caching | 6-1 ✅, 6-3 ✅ | `docs/sprint-artifacts/stories/6-4-implement-optional-input-file-caching.md` | Dev 1 (Cache Expert) |
-| [ ] | **9-5** | Cost alerts (threshold notifications) | 9-1 ✅ | `docs/sprint-artifacts/stories/9-5-implement-cost-alerts-future-enhancement.md` | Dev 2 (Cost/Alert) |
+| [IN PROGRESS: Dev 1] | **6-4** | Optional input file caching | 6-1 ✅, 6-3 ✅ | `docs/sprint-artifacts/stories/6-4-implement-optional-input-file-caching.md` | Dev 1 (Cache Expert) |
+| [IN PROGRESS: Dev 2] | **9-5** | Cost alerts (threshold notifications) | 9-1 ✅ | `docs/sprint-artifacts/stories/9-5-implement-cost-alerts-future-enhancement.md` | Dev 2 (Cost/Alert) |
 
 **Dev 3**: If no story available, work on **Performance Testing** or **Security Audit** (see OPUS.md Phase 2)
 
