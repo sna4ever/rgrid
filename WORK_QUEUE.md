@@ -1,51 +1,38 @@
 # Self-Service Work Queue (Dependency-Aware)
 
-## How It Works
+## Project Status: 93% Complete 🚀
 
-Stories are grouped by tier. Only claim stories whose dependencies are marked [DONE].
+**27 stories done | 736 tests passing | 2 backend stories remaining**
 
----
-
-# ✅ STABILIZATION GATE COMPLETE
-
-**26 stories validated. 652 tests passing. Ready for next sprint!**
-
-See: `docs/TIER5_8_VALIDATION_REPORT.md` for full validation details.
+See `OPUS.md` for strategic completion plan.
 
 ---
 
-# REMAINING BACKLOG
+# 🔥 PHASE 1: COMPLETE BACKEND (Current Sprint)
 
-## Tier 9 - CLI Polish & Resilience (All can start NOW)
+**Only 2 stories remain before frontend!** Both can be claimed NOW.
 
-**Goal:** Improve CLI robustness and batch retry capabilities
+## Available Stories (Ready for Parallel Work)
 
-| Status | Story | Description | Depends On | Story File |
-|--------|-------|-------------|------------|------------|
-| [DONE] | **5-6** | Retry failed batch executions | 5-5 ✅ | `docs/sprint-artifacts/stories/5-6-implement-retry-for-failed-batch-executions.md` |
-| [DONE] | **10-5** | Network failure graceful handling | None | `docs/sprint-artifacts/stories/10-5-implement-network-failure-graceful-handling.md` |
-| [DONE] | **10-8** | Execution metadata tagging | None | `docs/sprint-artifacts/stories/10-8-implement-execution-metadata-tagging.md` |
+| Status | Story | Description | Depends On | Story File | Suggested Dev |
+|--------|-------|-------------|------------|------------|---------------|
+| [ ] | **6-4** | Optional input file caching | 6-1 ✅, 6-3 ✅ | `docs/sprint-artifacts/stories/6-4-implement-optional-input-file-caching.md` | Dev 1 (Cache Expert) |
+| [ ] | **9-5** | Cost alerts (threshold notifications) | 9-1 ✅ | `docs/sprint-artifacts/stories/9-5-implement-cost-alerts-future-enhancement.md` | Dev 2 (Cost/Alert) |
 
----
-
-## Tier 10 - Advanced Caching (After Tier 9 or parallel)
-
-**Goal:** Complete caching story with invalidation and input file caching
-
-| Status | Story | Description | Depends On | Story File |
-|--------|-------|-------------|------------|------------|
-| [DONE] | **6-3** | Automatic cache invalidation | 6-2 ✅ | `docs/sprint-artifacts/stories/6-3-implement-automatic-cache-invalidation.md` |
-| [ ] | **6-4** | Optional input file caching | 6-1 ✅ | `docs/sprint-artifacts/stories/6-4-implement-optional-input-file-caching.md` |
+**Dev 3**: If no story available, work on **Performance Testing** or **Security Audit** (see OPUS.md Phase 2)
 
 ---
 
-## Tier 11 - Future Enhancements
+# 📋 PHASE 2: STABILIZATION (After Phase 1)
 
-**Goal:** Cost alerting and future features
+Coming next (2-3 days):
+- **Dev 1**: Performance testing & optimization
+- **Dev 2**: Security audit & fixes
+- **Dev 3**: Integration testing & docs
 
-| Status | Story | Description | Depends On | Story File |
-|--------|-------|-------------|------------|------------|
-| [ ] | **9-5** | Cost alerts (future) | 9-1 ✅ | `docs/sprint-artifacts/stories/9-5-implement-cost-alerts-future-enhancement.md` |
+---
+
+# 🎨 PHASE 3: FRONTEND SPRINT (After Phase 2)
 
 ---
 
@@ -220,26 +207,47 @@ Read WORK_QUEUE.md and follow the Agent Prompt. You are Dev [1/2/3].
 
 ---
 
-## Agent Prompt
+## BMAD-Optimized Agent Prompt
 
 ```
-You are an autonomous dev agent. Complete ONE story per session, then stop.
+You are an autonomous dev agent with specialized expertise. Complete ONE story per session, then stop.
 
-1. Read WORK_QUEUE.md
-2. Find a [ ] story whose dependencies are all [DONE] or ✅
+AGENT SPECIALIZATIONS:
+- Dev 1: "Backend Specialist" - Cache systems, performance, file handling
+- Dev 2: "Full-Stack Bridge" - API integration, alerts, monitoring
+- Dev 3: "Quality Guardian" - Testing, security, documentation
+
+WORKFLOW:
+1. Read WORK_QUEUE.md - check PHASE 1 section for available stories
+2. Find a [ ] story matching your specialization (or any if yours unavailable)
 3. Claim it: edit WORK_QUEUE.md, change [ ] to [IN PROGRESS: Dev N]
 4. Read full story file from docs/sprint-artifacts/stories/
-5. Implement with TDD (write tests first)
+5. Implement with TDD:
+   - Write failing tests FIRST (red phase)
+   - Implement minimal code to pass (green phase)
+   - Refactor if needed (refactor phase)
 6. Run tests: venv/bin/pytest tests/ -v
-7. Commit and merge to main
-8. Edit WORK_QUEUE.md: change [IN PROGRESS: Dev N] to [DONE]
-9. Check if any [BLOCKED] stories can now be [ ] (deps met)
-10. STOP and output: "Story X-Y complete. Run /clear then restart me for next story."
+7. Verify on staging: export RGRID_API_URL=https://staging.rgrid.dev/api/v1/
+8. Commit with descriptive message and push to main
+9. Edit WORK_QUEUE.md: change [IN PROGRESS: Dev N] to [DONE]
+10. Move story to Completed section with your Dev number and wave
+11. STOP and output: "✅ Story X-Y complete. Run /clear then restart me for next story."
+
+QUALITY STANDARDS:
+- Must have unit tests (tests/unit/)
+- Must have integration tests if applicable (tests/integration/)
+- Must pass all existing tests (736+ tests)
+- Must update documentation if API changes
 
 STOP CONDITIONS:
-- Story completed successfully → output completion message
-- No [ ] stories available → output "Queue empty or all blocked"
-- Error/blocker encountered → output "BLOCKED: <reason>" and stop
+- Story completed successfully → "✅ Story X-Y complete. /clear then restart."
+- No stories available → Check Phase 2 tasks in OPUS.md
+- Blocked → "⚠️ BLOCKED: <reason>" and stop
 
-IMPORTANT: Do NOT loop. Complete ONE story, then STOP so user can /clear context.
+COORDINATION:
+- Push frequently to avoid conflicts
+- Check WORK_QUEUE.md before claiming to avoid collisions
+- Leave discoveries in story file comments for other devs
+
+IMPORTANT: Complete ONE story, then STOP for /clear. Quality > Speed.
 ```
