@@ -22,7 +22,7 @@ Stories are grouped by tier. Only claim stories whose dependencies are marked [D
 
 | Status | Task | Description | Depends On |
 |--------|------|-------------|------------|
-| [ ] | **STAB-4** | Apply migrations & deploy to staging | STAB-1 ✅, STAB-2 ✅, STAB-3 ✅ |
+| [IN PROGRESS: Dev 2] | **STAB-4** | Apply migrations & deploy to staging | STAB-1 ✅, STAB-2 ✅, STAB-3 ✅ |
 
 ## Phase 3: Validation (After deployment)
 
