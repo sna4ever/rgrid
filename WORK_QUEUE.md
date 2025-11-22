@@ -71,14 +71,96 @@ All backend stories complete - see Completed section.
 | Status | Story | Description | Depends On | Story File |
 |--------|-------|-------------|------------|------------|
 | [DONE] | **10-1** | Marketing website landing page | None | `docs/sprint-artifacts/stories/10-1-build-marketing-website-landing-page.md` |
-| [ ] | **10-2** | Console dashboard with history | 10-1 | `docs/sprint-artifacts/stories/10-2-build-console-dashboard-with-execution-history.md` |
-| [ ] | **10-3** | Download outputs via console | 10-2 | `docs/sprint-artifacts/stories/10-3-implement-download-outputs-via-console.md` |
+| [IN PROGRESS: Dev 2] | **10-2** | Console dashboard with history | 10-1 | `docs/sprint-artifacts/stories/10-2-build-console-dashboard-with-execution-history.md` |
+| [PREP: Dev 3] | **10-3** | Download outputs via console | 10-2 | `docs/sprint-artifacts/stories/10-3-implement-download-outputs-via-console.md` |
 
 **Frontend Tech Stack:**
 - Next.js 14 with App Router
 - shadcn/ui for components
 - Tailwind CSS for styling
 - TypeScript for type safety
+
+---
+
+# 🚀 PHASE 4: PRODUCTION READINESS (Available for Dev 1)
+
+**Polish, documentation, and production prep while frontend completes.**
+
+## Available Tasks (Can start immediately)
+
+| Status | Story | Description | Priority | Effort |
+|--------|-------|-------------|----------|--------|
+| [ ] | **PROD-1** | Production deployment guide | HIGH | 2h |
+| [ ] | **PROD-2** | API documentation (OpenAPI/Swagger) | HIGH | 3h |
+| [ ] | **PROD-3** | CLI command improvements | MEDIUM | 2h |
+| [ ] | **PROD-4** | Performance benchmarking suite | MEDIUM | 4h |
+| [ ] | **PROD-5** | Monitoring & alerting setup | HIGH | 3h |
+| [ ] | **PROD-6** | User quickstart guide | HIGH | 2h |
+| [ ] | **PROD-7** | Video tutorial scripts | LOW | 2h |
+| [ ] | **PROD-8** | Load testing framework | MEDIUM | 3h |
+| [ ] | **PROD-9** | Backup & recovery procedures | HIGH | 2h |
+| [ ] | **PROD-10** | Rate limiting implementation | MEDIUM | 3h |
+
+## Task Descriptions
+
+### PROD-1: Production Deployment Guide
+- Complete step-by-step production deployment
+- Infrastructure requirements and scaling guidelines
+- Security hardening checklist
+- Rollback procedures
+
+### PROD-2: API Documentation
+- Generate OpenAPI/Swagger spec from FastAPI
+- Interactive API documentation
+- Authentication examples
+- Rate limit documentation
+
+### PROD-3: CLI Command Improvements
+- Add `rgrid config` command for settings
+- Improve error messages with suggestions
+- Add `--json` output format for automation
+- Progress bars for long operations
+
+### PROD-4: Performance Benchmarking
+- Automated performance test suite
+- Baseline metrics for each operation
+- Regression detection
+- Performance report generation
+
+### PROD-5: Monitoring & Alerting
+- Prometheus metrics integration
+- Grafana dashboard templates
+- Alert rules for critical issues
+- Uptime monitoring setup
+
+### PROD-6: User Quickstart Guide
+- 5-minute getting started guide
+- Common use cases with examples
+- Troubleshooting section
+- FAQ
+
+### PROD-7: Video Tutorial Scripts
+- Script for "Getting Started" video
+- Script for "Advanced Features" video
+- Script for "Troubleshooting" video
+
+### PROD-8: Load Testing Framework
+- Locust or K6 load test scripts
+- Capacity planning tests
+- Stress test scenarios
+- Performance baseline documentation
+
+### PROD-9: Backup & Recovery
+- Database backup automation
+- MinIO backup strategy
+- Disaster recovery playbook
+- RTO/RPO documentation
+
+### PROD-10: Rate Limiting
+- Per-user rate limits
+- Per-project rate limits
+- Rate limit headers in responses
+- Configuration via environment
 
 ---
 
