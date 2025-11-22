@@ -34,6 +34,7 @@ Stories are grouped by tier. Only claim stories whose dependencies are marked [D
 | [DONE] **9-3** | rgrid cost command | Dev 3 | 9 |
 | [DONE] **9-4** | Cost estimation for batches | Dev 3 | 10 |
 | [DONE] **8-5** | Batch progress with --watch | Dev 2 | 10 |
+| [DONE] **10-7** | Auto-retry transient failures | Dev 1 | 11 |
 
 ---
 
@@ -134,7 +135,7 @@ Stories are grouped by tier. Only claim stories whose dependencies are marked [D
 |--------|-------|-------------|------------|------------|
 | [DONE] | **10-4** | Structured error handling | Epic 2 ✅ | `docs/sprint-artifacts/stories/10-4-implement-structured-error-handling-with-clear-messages.md` |
 | [DONE] | **10-6** | Manual retry command | Epic 2 ✅ | `docs/sprint-artifacts/stories/10-6-implement-manual-retry-command.md` |
-| [ ] | **10-7** | Auto-retry transient failures | 10-6 ✅ | `docs/sprint-artifacts/stories/10-7-implement-auto-retry-for-transient-failures.md` |
+| [DONE] | **10-7** | Auto-retry transient failures | 10-6 ✅ | `docs/sprint-artifacts/stories/10-7-implement-auto-retry-for-transient-failures.md` |
 
 ---
 
