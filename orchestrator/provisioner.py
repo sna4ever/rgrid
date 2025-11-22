@@ -215,13 +215,15 @@ class WorkerProvisioner:
             ip_address = server["public_net"]["ipv4"]["ip"]
 
             # Create worker record in database
+            now = datetime.utcnow()
             db_worker = Worker(
                 worker_id=worker_id,
                 node_id=str(server_id),
                 ip_address=ip_address,
                 max_concurrent=WORKER_CONCURRENT_JOBS,
                 status='provisioning',
-                created_at=datetime.utcnow(),
+                created_at=now,
+                billing_hour_start=now,  # Story 9-2: Track billing hour
             )
 
             session.add(db_worker)

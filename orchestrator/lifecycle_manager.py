@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sess
 from sqlalchemy import select, and_
 
 from orchestrator.hetzner_client import HetznerClient
+from orchestrator.billing import finalize_billing_hour_costs
 
 logger = logging.getLogger(__name__)
 
@@ -215,12 +216,29 @@ class WorkerLifecycleManager:
         """
         Terminate a worker.
 
+        Finalizes billing hour costs before termination (Story 9-2).
+
         Args:
             session: Database session
             worker: Worker record
         """
         from api.app.models.worker import Worker
         from sqlalchemy import update
+
+        # Finalize billing hour costs before termination (Story 9-2)
+        try:
+            finalized_count = await finalize_billing_hour_costs(session, worker)
+            if finalized_count > 0:
+                logger.info(
+                    f"Finalized costs for {finalized_count} executions "
+                    f"before terminating worker {worker.worker_id}"
+                )
+        except Exception as e:
+            logger.error(
+                f"Error finalizing costs for worker {worker.worker_id}: {e}",
+                exc_info=True
+            )
+            # Continue with termination even if cost finalization fails
 
         # Update worker status
         await session.execute(
