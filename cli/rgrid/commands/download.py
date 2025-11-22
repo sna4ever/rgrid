@@ -1,5 +1,10 @@
-"""Download outputs from executions on demand (Story 7-5)."""
+"""Download outputs from executions on demand (Story 7-5).
 
+SECURITY: This module downloads files from API responses.
+All filenames must be validated to prevent path traversal attacks.
+"""
+
+import os
 from pathlib import Path
 import click
 from rich.console import Console
@@ -9,6 +14,32 @@ from rgrid.api_client import get_client
 from rgrid.utils.file_download import download_artifact_from_minio
 
 console = Console()
+
+
+def sanitize_filename(filename: str) -> str:
+    """
+    Sanitize a filename from API response to prevent path traversal.
+
+    SECURITY: Removes directory components and dangerous characters
+    to ensure the file is written only to the target directory.
+
+    Args:
+        filename: Untrusted filename from API response
+
+    Returns:
+        Safe filename (basename only, no directory components)
+    """
+    # Extract basename to remove any directory components
+    safe_name = os.path.basename(filename)
+
+    # Remove null bytes
+    safe_name = safe_name.replace('\x00', '')
+
+    # If after sanitization the name is empty, use a default
+    if not safe_name or safe_name in ('.', '..'):
+        safe_name = 'downloaded_file'
+
+    return safe_name
 
 
 @click.command()
@@ -90,12 +121,15 @@ def download(execution_id: str, output_dir: str, list_only: bool, specific_file:
         # Download each artifact
         downloaded_count = 0
         for artifact in output_artifacts:
-            filename = artifact.get('filename', 'unknown')
+            raw_filename = artifact.get('filename', 'unknown')
             file_path = artifact.get('file_path')
 
             if not file_path:
-                console.print(f"[yellow]Warning:[/yellow] No file path for {filename}")
+                console.print(f"[yellow]Warning:[/yellow] No file path for {raw_filename}")
                 continue
+
+            # SECURITY: Sanitize filename to prevent path traversal
+            filename = sanitize_filename(raw_filename)
 
             # Download from MinIO
             local_path = output_path / filename

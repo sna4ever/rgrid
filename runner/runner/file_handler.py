@@ -1,9 +1,61 @@
-"""File handling utilities for runner."""
+"""File handling utilities for runner.
+
+SECURITY: This module handles untrusted filenames from API responses.
+All filenames MUST be validated to prevent path traversal attacks.
+"""
 
 import gzip
 import httpx
 from pathlib import Path
 from typing import Dict, List
+
+
+class PathTraversalError(ValueError):
+    """Raised when a path traversal attack is detected."""
+    pass
+
+
+def validate_safe_filename(filename: str, base_dir: Path) -> Path:
+    """
+    Validate that a filename is safe and resolves within base_dir.
+
+    SECURITY: Prevents path traversal attacks by ensuring the resolved
+    path stays within the intended directory.
+
+    Args:
+        filename: Untrusted filename from external source
+        base_dir: Directory that the file must stay within
+
+    Returns:
+        Safe absolute path within base_dir
+
+    Raises:
+        PathTraversalError: If path traversal is detected
+    """
+    # Check for obvious path traversal patterns
+    if '..' in filename:
+        raise PathTraversalError(f"Path traversal detected in filename: '{filename}'")
+
+    if filename.startswith('/'):
+        raise PathTraversalError(f"Absolute path not allowed: '{filename}'")
+
+    if '\x00' in filename:
+        raise PathTraversalError(f"Null byte detected in filename: '{filename}'")
+
+    # Resolve paths to check for traversal via symlinks or other tricks
+    base_resolved = base_dir.resolve()
+    target_path = base_dir / filename
+    target_resolved = target_path.resolve()
+
+    # Ensure target is within base directory
+    try:
+        target_resolved.relative_to(base_resolved)
+    except ValueError:
+        raise PathTraversalError(
+            f"Path '{filename}' escapes base directory '{base_dir}'"
+        )
+
+    return target_path
 
 
 def download_input_files(download_urls: Dict[str, str], work_dir: Path) -> Dict[str, Path]:
@@ -12,6 +64,8 @@ def download_input_files(download_urls: Dict[str, str], work_dir: Path) -> Dict[
 
     Files are downloaded with streaming to support large files (>100MB).
     Automatically decompresses gzip-compressed files.
+
+    SECURITY: Validates all filenames to prevent path traversal attacks.
 
     Args:
         download_urls: Dict mapping filename to presigned download URL
@@ -27,7 +81,8 @@ def download_input_files(download_urls: Dict[str, str], work_dir: Path) -> Dict[
 
     for filename, url in download_urls.items():
         try:
-            file_path = work_dir / filename
+            # SECURITY: Validate filename before use
+            file_path = validate_safe_filename(filename, work_dir)
 
             # Download file with streaming from presigned URL
             with httpx.stream("GET", url, timeout=600) as response:

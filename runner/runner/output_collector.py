@@ -1,16 +1,29 @@
-"""Output file collection and upload to MinIO (Story 7-2)."""
+"""Output file collection and upload to MinIO (Story 7-2).
+
+SECURITY: This module collects files from container output directories.
+Must prevent symlink attacks where containers create symlinks pointing
+to sensitive host files.
+"""
 
 import os
 import mimetypes
+import logging
 from pathlib import Path
 from typing import List, Dict
 import boto3
 from botocore.config import Config
 
+logger = logging.getLogger(__name__)
+
 
 def collect_output_files(work_dir: Path) -> List[Dict]:
     """
     Scan /work directory and collect all output files.
+
+    SECURITY: Prevents symlink attacks by:
+    - Not following symlinks during directory walk
+    - Skipping any symlink files
+    - Verifying resolved paths stay within work_dir
 
     Args:
         work_dir: Path to /work directory
@@ -26,19 +39,53 @@ def collect_output_files(work_dir: Path) -> List[Dict]:
     if not work_dir.exists():
         return outputs
 
+    # Resolve work_dir to absolute path for security checks
+    work_dir_resolved = work_dir.resolve()
+
     # Walk through all files in work_dir (including subdirectories)
-    for root, dirs, files in os.walk(work_dir):
+    # SECURITY: followlinks=False prevents following symlinked directories
+    for root, dirs, files in os.walk(work_dir, followlinks=False):
         for file in files:
             file_path = Path(root) / file
 
-            # Calculate relative path from work_dir (preserves subdirectories)
-            relative_path = file_path.relative_to(work_dir)
+            # SECURITY: Skip symlinks entirely to prevent escape attacks
+            if file_path.is_symlink():
+                logger.warning(f"Security: Skipping symlink output: {file_path}")
+                continue
 
-            outputs.append({
-                "filename": str(relative_path).replace("\\", "/"),  # Unix-style paths
-                "path": str(file_path),
-                "size_bytes": file_path.stat().st_size,
-            })
+            # SECURITY: Verify the resolved path stays within work_dir
+            try:
+                file_resolved = file_path.resolve()
+                file_resolved.relative_to(work_dir_resolved)
+            except ValueError:
+                logger.warning(
+                    f"Security: Skipping file that escapes work_dir: {file_path}"
+                )
+                continue
+
+            # Calculate relative path from work_dir (preserves subdirectories)
+            try:
+                relative_path = file_path.relative_to(work_dir)
+            except ValueError:
+                logger.warning(f"Security: Cannot compute relative path for: {file_path}")
+                continue
+
+            # SECURITY: Validate relative path doesn't contain traversal
+            relative_str = str(relative_path)
+            if '..' in relative_str:
+                logger.warning(f"Security: Path traversal in relative path: {relative_str}")
+                continue
+
+            try:
+                outputs.append({
+                    "filename": relative_str.replace("\\", "/"),  # Unix-style paths
+                    "path": str(file_path),
+                    "size_bytes": file_path.stat().st_size,
+                })
+            except OSError as e:
+                # File may have been deleted or is inaccessible
+                logger.warning(f"Could not stat file {file_path}: {e}")
+                continue
 
     return outputs
 
