@@ -99,6 +99,9 @@ class TestWorkerHealthMonitor:
         mock_execution.execution_id = "exec-456"
         mock_execution.worker_id = "worker-123"
         mock_execution.status = 'running'
+        # Auto-retry tracking fields (Story 10-7)
+        mock_execution.retry_count = 0
+        mock_execution.max_retries = 2
 
         # Mock database session
         mock_session = AsyncMock()
@@ -131,6 +134,9 @@ class TestWorkerHealthMonitor:
         mock_execution = Mock()
         mock_execution.execution_id = "exec-456"
         mock_execution.worker_id = "worker-123"
+        # Auto-retry tracking fields (Story 10-7)
+        mock_execution.retry_count = 0
+        mock_execution.max_retries = 2
 
         # Mock session
         mock_session = AsyncMock()

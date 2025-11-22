@@ -54,3 +54,7 @@ class Execution(Base):
     duration_seconds: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     worker_hostname: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
     execution_metadata: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+
+    # Auto-retry tracking (Story 10-7)
+    retry_count: Mapped[int] = mapped_column(Integer, default=0)
+    max_retries: Mapped[int] = mapped_column(Integer, default=2)

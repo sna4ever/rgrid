@@ -144,34 +144,70 @@ class WorkerHealthMonitor:
 
     async def reschedule_execution(self, session: AsyncSession, execution):
         """
-        Reschedule an orphaned execution.
+        Reschedule an orphaned execution with auto-retry limits (Story 10-7).
 
         Args:
             session: Database session
             execution: Execution record
         """
         from api.app.models.execution import Execution
+        from rgrid_common.retry import format_retry_message, format_max_retries_message
 
-        logger.info(
-            f"Rescheduling execution {execution.execution_id} "
-            f"(was on dead worker {execution.worker_id})"
-        )
+        current_retry_count = getattr(execution, 'retry_count', 0) or 0
+        max_retries = getattr(execution, 'max_retries', 2) or 2
+        new_retry_count = current_retry_count + 1
 
-        # Reset execution to queued state
-        await session.execute(
-            update(Execution)
-            .where(Execution.execution_id == execution.execution_id)
-            .values(
-                status='queued',
-                worker_id=None,
-                ray_task_id=None,
-                started_at=None,
-                execution_error=f"Worker {execution.worker_id} died - rescheduled"
+        if new_retry_count <= max_retries:
+            # Auto-retry: reset to queued state with incremented retry count
+            retry_message = format_retry_message(
+                retry_count=new_retry_count,
+                max_retries=max_retries,
+                reason="worker failure",
             )
-        )
+
+            logger.info(
+                f"Auto-retry {new_retry_count}/{max_retries} for execution {execution.execution_id} "
+                f"(was on dead worker {execution.worker_id})"
+            )
+
+            await session.execute(
+                update(Execution)
+                .where(Execution.execution_id == execution.execution_id)
+                .values(
+                    status='queued',
+                    worker_id=None,
+                    ray_task_id=None,
+                    started_at=None,
+                    retry_count=new_retry_count,
+                    execution_error=retry_message,
+                )
+            )
+        else:
+            # Max retries exceeded: mark as failed permanently
+            max_retries_message = format_max_retries_message(
+                max_retries=max_retries,
+                original_error=f"Worker {execution.worker_id} died",
+            )
+
+            logger.warning(
+                f"Max retries ({max_retries}) exceeded for execution {execution.execution_id} - marking as failed"
+            )
+
+            await session.execute(
+                update(Execution)
+                .where(Execution.execution_id == execution.execution_id)
+                .values(
+                    status='failed',
+                    worker_id=None,
+                    ray_task_id=None,
+                    completed_at=datetime.utcnow(),
+                    retry_count=new_retry_count,
+                    execution_error=max_retries_message,
+                )
+            )
 
         # Note: The Ray task will need to be resubmitted by the API
-        # when the execution is picked up again
+        # when the execution is picked up again (if retrying)
 
 
 class WorkerHeartbeatSender:

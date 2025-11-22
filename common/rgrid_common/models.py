@@ -88,6 +88,10 @@ class ExecutionResponse(ExecutionBase):
         None, description="Extensible execution metadata (runtime_version, python_version, etc.)"
     )
 
+    # Auto-retry tracking (Story 10-7)
+    retry_count: int = Field(default=0, ge=0, description="Number of retry attempts made")
+    max_retries: int = Field(default=2, ge=0, description="Maximum retries allowed")
+
 
 class FileMetadata(BaseModel):
     """Metadata for a file in the system."""

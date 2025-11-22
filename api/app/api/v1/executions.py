@@ -142,6 +142,9 @@ async def get_execution(
         started_at=db_execution.started_at,
         completed_at=db_execution.completed_at,
         cost_micros=db_execution.cost_micros,
+        # Auto-retry tracking (Story 10-7)
+        retry_count=db_execution.retry_count,
+        max_retries=db_execution.max_retries,
     )
 
 
