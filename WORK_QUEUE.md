@@ -32,6 +32,7 @@ Stories are grouped by tier. Only claim stories whose dependencies are marked [D
 | [DONE] **8-4** | CLI reconnection for WebSocket | Dev 2 | 9 |
 | [DONE] **9-2** | Billing hour cost amortization | Dev 1 | 9 |
 | [DONE] **9-3** | rgrid cost command | Dev 3 | 9 |
+| [DONE] **9-4** | Cost estimation for batches | Dev 3 | 10 |
 
 ---
 
@@ -111,16 +112,16 @@ Stories are grouped by tier. Only claim stories whose dependencies are marked [D
 
 ---
 
-## Tier 7 - Cost Tracking (Epic 9)
+## Tier 7 - Cost Tracking (Epic 9) ✅ COMPLETE
 
-**Epic 4 (worker provisioning) complete - can start now!**
+**Goal**: Transparent, predictable cost tracking with per-execution granularity - **ACHIEVED!**
 
 | Status | Story | Description | Depends On | Story File |
 |--------|-------|-------------|------------|------------|
 | [DONE] | **9-1** | MICRONS cost calculation | Epic 4 ✅ | `docs/sprint-artifacts/stories/9-1-implement-microns-cost-calculation.md` |
 | [DONE] | **9-2** | Billing hour cost amortization | 9-1 ✅ | `docs/sprint-artifacts/stories/9-2-implement-billing-hour-cost-amortization.md` |
 | [DONE] | **9-3** | rgrid cost command | 9-1 ✅ | `docs/sprint-artifacts/stories/9-3-implement-rgrid-cost-command.md` |
-| [IN PROGRESS: Dev 3] | **9-4** | Cost estimation for batches | 9-1 ✅ | `docs/sprint-artifacts/stories/9-4-implement-cost-estimation-for-batch-executions.md` |
+| [DONE] | **9-4** | Cost estimation for batches | 9-1 ✅ | `docs/sprint-artifacts/stories/9-4-implement-cost-estimation-for-batch-executions.md` |
 
 ---
 
