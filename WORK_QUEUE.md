@@ -14,7 +14,7 @@ Stories are grouped by tier. Only claim stories whose dependencies are marked [D
 
 | Status | Task | Description | Depends On |
 |--------|------|-------------|------------|
-| [IN PROGRESS: Dev 1] | **STAB-1** | Fix 7 failing tests | None |
+| [DONE] | **STAB-1** | Fix 7 failing tests | None |
 | [DONE] | **STAB-2** | Audit & generate missing DB migrations | None |
 | [DONE] | **STAB-3** | Review new API endpoints for deployment | None |
 
@@ -22,7 +22,7 @@ Stories are grouped by tier. Only claim stories whose dependencies are marked [D
 
 | Status | Task | Description | Depends On |
 |--------|------|-------------|------------|
-| [BLOCKED] | **STAB-4** | Apply migrations & deploy to staging | STAB-1, STAB-2, STAB-3 |
+| [ ] | **STAB-4** | Apply migrations & deploy to staging | STAB-1 ✅, STAB-2 ✅, STAB-3 ✅ |
 
 ## Phase 3: Validation (After deployment)
 
